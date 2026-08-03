@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "oscms",
+  "compatibility_date": "2026-08-01",
+  "main": "./src/worker.tsx",
+}
