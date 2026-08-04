@@ -217,6 +217,12 @@ catalogs:
     basecoat-css:
       specifier: 1.0.2
       version: 1.0.2
+    chart.js:
+      specifier: ^4.5.1
+      version: 4.5.1
+    hono:
+      specifier: ^4.12.34
+      version: 4.12.34
     invokers-polyfill:
       specifier: 1.0.3
       version: 1.0.3
@@ -249,6 +255,12 @@ importers:
       basecoat-css:
         specifier: 'catalog:'
         version: 1.0.2
+      chart.js:
+        specifier: 'catalog:'
+        version: 4.5.1
+      hono:
+        specifier: 'catalog:'
+        version: 4.12.34
       invokers-polyfill:
         specifier: 'catalog:'
         version: 1.0.3
@@ -699,6 +711,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@kurkle/color@0.3.4':
+    resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
   '@oxc-project/runtime@0.141.0':
     resolution: {integrity: sha512-Z/6jQ0dyvE2fVjMUO7GoD4h+3q0G4lI4BWQNjaPhC4RPxaS4hF1b7/QYKB/Tl+KAQwqqKgMF54ukR/VvV5FILg==}
@@ -1544,6 +1559,10 @@ packages:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
 
+  chart.js@4.5.1:
+    resolution: {integrity: sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==}
+    engines: {pnpm: '>=8'}
+
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
@@ -1604,6 +1623,10 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  hono@4.12.34:
+    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
+    engines: {node: '>=16.9.0'}
 
   invokers-polyfill@1.0.3:
     resolution: {integrity: sha512-T8zVavFQu5GlWlpkjghmaCaTx6Wk+9tWwJ2BC4oNsNAnar6AIrvSJQFZUcYDfrxzK9thBIyZvAkeLfdN9hTzGA==}
@@ -2338,6 +2361,8 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@kurkle/color@0.3.4': {}
+
   '@oxc-project/runtime@0.141.0': {}
 
   '@oxc-project/types@0.141.0': {}
@@ -2844,6 +2869,10 @@ snapshots:
 
   chai@6.2.2: {}
 
+  chart.js@4.5.1:
+    dependencies:
+      '@kurkle/color': 0.3.4
+
   convert-source-map@2.0.0: {}
 
   cookie@1.1.1: {}
@@ -2912,6 +2941,8 @@ snapshots:
     optional: true
 
   graceful-fs@4.2.11: {}
+
+  hono@4.12.34: {}
 
   invokers-polyfill@1.0.3: {}
 

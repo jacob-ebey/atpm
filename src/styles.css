@@ -1,2 +1,27 @@
 @import "tailwindcss";
 @import "basecoat-css/vega";
+
+@layer base {
+  .c-x {
+    @apply px-4 md:px-8 lg:px-24 max-w-7xl mx-auto;
+  }
+
+  .c-y {
+    @apply py-16 lg:py-24;
+  }
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(calc(-256px * 8));
+    }
+  }
+  .animate-marquee {
+    animation: marquee 40s linear infinite;
+  }
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+}

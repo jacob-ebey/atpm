@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "basecoat-css": "catalog:",
+    "chart.js": "catalog:",
+    "hono": "catalog:",
     "invokers-polyfill": "catalog:",
     "srv-jsx": "catalog:",
     "template-for-polyfill": "catalog:"

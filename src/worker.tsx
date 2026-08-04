@@ -1,12 +1,14 @@
-import { renderToReadableStream } from "srv-jsx";
+import { Hono } from "hono";
 
 import { App } from "./app";
+import { srvJsxRenderer } from "./lib/renderer";
 
-export default {
-  async fetch(_: Request) {
-    const body = await renderToReadableStream(<App />);
-    return new Response(body, {
-      status: 200,
-    });
-  },
-};
+const app = new Hono();
+
+app.use(srvJsxRenderer());
+
+app.get("/", ({ render }) => {
+  return render(<App />);
+});
+
+export default app;
