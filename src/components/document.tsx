@@ -40,7 +40,7 @@ export function Body({ children }: { children?: JSXChild }) {
 
   return (
     <body hx-boost:inherited="true">
-      <Toaster id="url-errors">
+      <Toaster id="toaster">
         {errors.map((error) => (
           <Toast category="error" title={error} />
         ))}
