@@ -16,7 +16,7 @@ export async function MarketingLayout({ children }: { children?: JSXChild }) {
       <header class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background">
         <div class="flex h-16 max-w-7xl items-center gap-8 c-x">
           <a href="/" class="text-lg font-semibold">
-            OSCMS
+            AT Starter
           </a>
           <div class="flex-1 flex items-center justify-end gap-2">
             {profile ? (

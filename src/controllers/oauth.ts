@@ -61,33 +61,30 @@ app.get("/callback", async (c) => {
     const atproto = new Client({ handler: result.session });
 
     const profileStub = c.env.PROFILE.getByName(result.session.did);
-    const profile = await profileStub.get();
-    if (!profile) {
-      let displayName: string | undefined;
-      let handle: string | undefined;
-      const profile = await atproto.call(AppBskyActorGetProfile, {
-        params: { actor: result.session.did },
-      });
-      if (profile.ok) {
-        displayName = profile.data.displayName || profile.data.handle;
-        handle = profile.data.handle;
-      }
+    let displayName: string | undefined;
+    let handle: string | undefined;
+    const profile = await atproto.call(AppBskyActorGetProfile, {
+      params: { actor: result.session.did },
+    });
+    if (profile.ok) {
+      displayName = profile.data.displayName || profile.data.handle;
+      handle = profile.data.handle;
+    }
 
-      if (!displayName || !handle) {
-        const identity = await atproto.call(ComAtprotoIdentityResolveIdentity, {
-          params: { identifier: result.session.did },
-        });
-        if (identity.ok) {
-          displayName = identity.data.handle;
-          handle = identity.data.handle;
-        }
+    if (!displayName || !handle) {
+      const identity = await atproto.call(ComAtprotoIdentityResolveIdentity, {
+        params: { identifier: result.session.did },
+      });
+      if (identity.ok) {
+        displayName = identity.data.handle;
+        handle = identity.data.handle;
       }
 
       if (!displayName) displayName = "Unknown";
       if (!handle) return c.redirect(new URL(`/?error=${encodeURI("Failed to resolve handle")}`));
-
-      await profileStub.set({ handle, displayName });
     }
+
+    await profileStub.set({ handle, displayName });
 
     await setSessionDid(c, result.session.did);
     return c.redirect(new URL("/", c.req.url));

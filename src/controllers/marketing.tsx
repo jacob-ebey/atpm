@@ -9,7 +9,7 @@ app.get("/", async (c) => {
   return c.render(
     <html lang="en">
       <Head>
-        <title>OSCMS</title>
+        <title>AT Starter</title>
         <meta name="description" content="The batteries-included AT Protocol starter." />
       </Head>
       <Body>
