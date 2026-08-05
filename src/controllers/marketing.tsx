@@ -25,7 +25,7 @@ app.get("/", async (c) => {
             </a>
             <div class="flex-1 flex items-center justify-end gap-2">
               {profile ? (
-                <DropdownMenu id="dropdown-account" class="dropdown-menu">
+                <DropdownMenu id="dropdown-account">
                   <button
                     type="button"
                     id="dropdown-account-trigger"
