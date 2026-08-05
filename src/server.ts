@@ -2,8 +2,8 @@ import { scope } from "@atcute/oauth-node-client";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { csrf } from "hono/csrf";
-import { atproto } from "hono-atcute";
-import { createAtprotoStores } from "hono-atcute/cloudflare";
+import { atcute } from "hono-atcute";
+import { createStores } from "hono-atcute/cloudflare";
 
 import marketing from "@/controllers/marketing";
 import oauth from "@/controllers/oauth";
@@ -24,11 +24,11 @@ const app = new Hono<Env>();
 app.use(
   contextStorage(),
   csrf(),
-  atproto({
+  atcute({
     localdev: import.meta.env.DEV,
     callbackPath: "/oauth/callback",
     scope: () => [scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" })],
-    stores: (c) => createAtprotoStores(c.env.ATPROTO_STORE),
+    stores: (c) => createStores(c.env.ATPROTO_STORE),
   }),
   srvJsxRenderer(),
   htmxRedirects(),
