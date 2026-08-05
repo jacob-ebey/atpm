@@ -4,22 +4,34 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "cf:types": "wrangler types --env-interface CloudflareBindings",
     "dev": "vp dev",
     "build": "tsc && vp build",
     "preview": "vp preview"
   },
   "dependencies": {
+    "@atcute/atproto": "catalog:",
+    "@atcute/bluesky": "catalog:",
+    "@atcute/client": "catalog:",
+    "@atcute/identity": "catalog:",
+    "@atcute/identity-resolver": "catalog:",
+    "@atcute/identity-resolver-node": "catalog:",
+    "@atcute/lexicons": "catalog:",
+    "@atcute/oauth-node-client": "catalog:",
     "basecoat-css": "catalog:",
     "chart.js": "catalog:",
     "hono": "catalog:",
+    "htmx.org": "catalog:",
     "invokers-polyfill": "catalog:",
     "srv-jsx": "catalog:",
-    "template-for-polyfill": "catalog:"
+    "template-for-polyfill": "catalog:",
+    "valibot": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",
     "@hiogawa/vite-plugin-fullstack": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

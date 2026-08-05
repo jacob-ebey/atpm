@@ -2,8 +2,16 @@
   "compilerOptions": {
     "target": "es2023",
     "module": "esnext",
-    "lib": ["ES2023", "DOM"],
-    "types": ["@hiogawa/vite-plugin-fullstack/types", "vite/client"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [
+      "./basecoat.d.ts",
+      "./worker-configuration.d.ts",
+      "@hiogawa/vite-plugin-fullstack/types",
+      "vite/client"
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "jsx": "react-jsx",
     "jsxImportSource": "srv-jsx",
     "allowArbitraryExtensions": true,
@@ -23,5 +31,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "./*.d.ts"]
 }

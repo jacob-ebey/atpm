@@ -1,10 +1,13 @@
-import type { JSXChild } from "srv-jsx";
 import type { ImportAssetsResult } from "@hiogawa/vite-plugin-fullstack/runtime";
+import { getContext } from "hono/context-storage";
+import type { JSXChild } from "srv-jsx";
 
-import "../styles.css";
+import { Toast, Toaster } from "@/components/ui/toast";
 
-import serverAssets from "./head?assets=ssr";
-import browserAssets from "../browser?assets=client";
+import "@/styles.css";
+
+import serverAssets from "./document?assets=ssr";
+import browserAssets from "@/browser?assets=client";
 
 const headAssets = serverAssets.merge(browserAssets);
 
@@ -26,5 +29,22 @@ export function Head({ assets, children }: { assets?: ImportAssetsResult; childr
       ))}
       <script async type="module" src={allAssets.entry} />
     </head>
+  );
+}
+
+export function Body({ children }: { children?: JSXChild }) {
+  const c = getContext();
+  const url = new URL(c.req.url);
+  const errors = url.searchParams.getAll("error");
+
+  return (
+    <body hx-boost:inherited="true">
+      <Toaster id="url-errors">
+        {errors.map((error) => (
+          <Toast category="error" title={error} />
+        ))}
+      </Toaster>
+      {children}
+    </body>
   );
 }

@@ -3,6 +3,7 @@ import type * as chart from "chart.js";
 declare global {
   interface Window {
     basecoat: {
+      init(componentName: string, options?: { force?: boolean }): void;
       chart<T extends chart.ChartType>(
         elementOrSelector: string | HTMLElement,
         config: {
@@ -21,7 +22,7 @@ declare global {
           /**
            * Series config mapped from row keys.
            */
-          series: Recrod<
+          series: Record<
             string,
             {
               /**

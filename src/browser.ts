@@ -1,4 +1,5 @@
 import "basecoat-css/all";
+import "htmx.org";
 
 function areProcessingDirectivesSupported() {
   const el = document.createElement("div");

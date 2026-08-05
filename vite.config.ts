@@ -5,6 +5,12 @@ import jsx from "srv-jsx/vite";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  server: {
+    host: "127.0.0.1",
+  },
+  resolve: {
+    tsconfigPaths: true,
+  },
   environments: {
     client: {
       build: {
@@ -26,8 +32,8 @@ export default defineConfig({
     tailwind(),
     fullstack({ serverEnvironments: ["ssr"], serverHandler: false }),
     cloudflare({
+      persistState: true,
       viteEnvironment: { name: "ssr" },
-      configPath: "./wrangler.jsonc",
     }),
   ],
   staged: {

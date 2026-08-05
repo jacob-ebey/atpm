@@ -2,5 +2,25 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "oscms",
   "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
   "main": "./src/worker.tsx",
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "AtprotoStore",
+        "name": "ATPROTO_STORE",
+      },
+      {
+        "class_name": "Profile",
+        "name": "PROFILE",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["AtprotoStore", "Profile"],
+      "new_sqlite_classes": [],
+    },
+  ],
 }
