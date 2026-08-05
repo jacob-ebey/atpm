@@ -19,11 +19,11 @@ app.get("/", async (c) => {
               <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
                 The batteries-included AT Protocol starter.
               </h1>
-              <p class="max-w-prose text-lg text-muted-foreground mb-4">
+              <p class="max-w-prose text-lg text-muted-foreground mb-6">
                 Authentication, custom lexicons, Basecoat UI. Backed by the power of Cloudflare.
               </p>
               <div
-                class="item flex w-full max-w-fit py-0 pr-1 text-nowrap flex-nowrap justify-between mb-6"
+                class="item flex w-full max-w-fit py-0 pr-1 text-nowrap flex-nowrap justify-between"
                 data-variant="outline"
                 data-size="sm"
               >
@@ -61,28 +61,6 @@ app.get("/", async (c) => {
                     <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
                   </svg>
                 </button>
-              </div>
-              <div class="flex gap-2 flex-wrap">
-                <a href="#" class="btn" data-size="lg">
-                  Get Started
-                </a>
-                <a href="#" class="btn" data-size="lg" data-variant="ghost">
-                  Learn More
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                    <path d="M5 12l14 0" />
-                    <path d="M13 18l6 -6" />
-                    <path d="M13 6l6 6" />
-                  </svg>
-                </a>
               </div>
             </section>
           </main>
