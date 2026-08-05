@@ -26,6 +26,7 @@ app.use(
   csrf(),
   atproto({
     localdev: import.meta.env.DEV,
+    callbackPath: "/oauth/callback",
     scope: () => [scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" })],
     stores: (c) => createAtprotoStores(c.env.ATPROTO_STORE),
   }),

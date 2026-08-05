@@ -1,4 +1,5 @@
 {
+  "references": [{ "path": "./tsconfig.scripts.json" }],
   "compilerOptions": {
     "target": "es2023",
     "module": "esnext",
@@ -7,6 +8,7 @@
       "./basecoat.d.ts",
       "./worker-configuration.d.ts",
       "@hiogawa/vite-plugin-fullstack/types",
+      "node",
       "vite/client"
     ],
     "paths": {

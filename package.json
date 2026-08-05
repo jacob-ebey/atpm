@@ -5,7 +5,8 @@
     "cf:types": "wrangler types --env-interface CloudflareBindings",
     "dev": "vp dev",
     "build": "tsc && vp build",
-    "preview": "vp preview"
+    "preview": "vp preview",
+    "prepare": "node scripts/setup-env.ts"
   },
   "dependencies": {
     "@atcute/atproto": "catalog:",
