@@ -7,6 +7,7 @@ catalog:
   "@atcute/atproto": 4.0.4
   "@atcute/bluesky": 4.0.17
   "@atcute/client": 5.1.1
+  "@atcute/lex-cli": 3.2.1
   "@atcute/lexicons": 2.0.3
   "@atcute/oauth-node-client": 2.0.1
   "@cloudflare/vite-plugin": 1.50.0
@@ -14,7 +15,7 @@ catalog:
   "@tailwindcss/vite": 4.3.3
   "@types/node": ^24.13.3
   basecoat-css: 1.0.2
-  chart.js: ^4.5.1
+  chart.js: 4.5.1
   hono: 4.13.0
   hono-atcute: 0.0.9
   htmx.org: 4.0.0-beta6

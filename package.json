@@ -25,6 +25,7 @@
     "valibot": "catalog:"
   },
   "devDependencies": {
+    "@atcute/lex-cli": "catalog:",
     "@cloudflare/vite-plugin": "catalog:",
     "@hiogawa/vite-plugin-fullstack": "catalog:",
     "@tailwindcss/vite": "catalog:",
