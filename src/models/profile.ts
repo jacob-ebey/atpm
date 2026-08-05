@@ -2,7 +2,6 @@ import { DurableObject } from "cloudflare:workers";
 import * as v from "valibot";
 
 const ProfileSchema = v.object({
-  did: v.pipe(v.string(), v.regex(/^did:[a-z]+:[a-zA-Z0-9]+$/)),
   handle: v.pipe(v.string(), v.domain()),
   displayName: v.pipe(v.string(), v.minLength(1)),
 });

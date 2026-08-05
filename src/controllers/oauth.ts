@@ -86,7 +86,7 @@ app.get("/callback", async (c) => {
       if (!displayName) displayName = "Unknown";
       if (!handle) return c.redirect(new URL(`/?error=${encodeURI("Failed to resolve handle")}`));
 
-      await profileStub.set({ did: result.session.did, handle, displayName });
+      await profileStub.set({ handle, displayName });
     }
 
     await setSessionDid(c, result.session.did);
