@@ -1,17 +1,18 @@
-import { getContext } from "hono/context-storage";
+import { Hono } from "hono";
 
-import { Body, Head } from "@/components/document";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Body, Head } from "@/components/document";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 
-export async function App() {
-  const c = getContext<Env>();
+const app = new Hono<Env>();
+
+app.get("/", async (c) => {
   const atproto = c.get("atproto");
   const profile = atproto?.session.did
     ? await c.env.PROFILE.getByName(atproto.session.did).get()
     : undefined;
 
-  return (
+  return c.render(
     <html lang="en">
       <Head>
         <title>OSCMS</title>
@@ -229,6 +230,8 @@ export async function App() {
           </section>
         </main>
       </Body>
-    </html>
+    </html>,
   );
-}
+});
+
+export default app;

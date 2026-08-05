@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { csrf } from "hono/csrf";
 
-import { App } from "@/app";
+import marketing from "@/controllers/marketing";
 import oauth from "@/controllers/oauth";
 import { atproto } from "@/lib/atproto";
 import { htmxRedirects } from "@/lib/htmx";
@@ -21,10 +21,7 @@ const app = new Hono<Env>();
 
 app.use(contextStorage(), csrf(), atproto(), srvJsxRenderer(), htmxRedirects());
 
-app.get("/", ({ render }) => {
-  return render(<App />);
-});
-
+app.route("", marketing);
 app.route("/oauth", oauth);
 
 export default app;
