@@ -3,7 +3,7 @@
   "name": "oscms",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "./src/worker.tsx",
+  "main": "./src/server.ts",
   "durable_objects": {
     "bindings": [
       {

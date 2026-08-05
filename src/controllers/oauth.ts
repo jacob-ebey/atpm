@@ -3,9 +3,8 @@ import { AppBskyActorGetProfile } from "@atcute/bluesky";
 import { Client } from "@atcute/client";
 import { isActorIdentifier, type ActorIdentifier } from "@atcute/lexicons/syntax";
 import { Hono } from "hono";
+import { clearSessionDid, setSessionDid } from "hono-atcute";
 import * as v from "valibot";
-
-import { clearSessionDid, setSessionDid } from "@/lib/atproto";
 
 const app = new Hono<Env>();
 
