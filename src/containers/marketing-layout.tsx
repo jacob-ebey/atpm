@@ -7,9 +7,6 @@ import { getContext } from "hono/context-storage";
 export async function MarketingLayout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
   const atcute = c.get("atcute");
-  const profile = atcute.session?.did
-    ? await c.env.PROFILE.getByName(atcute.session.did).get()
-    : undefined;
 
   return (
     <>
@@ -19,7 +16,7 @@ export async function MarketingLayout({ children }: { children?: JSXChild }) {
             AT Starter
           </a>
           <div class="flex-1 flex items-center justify-end gap-2">
-            {profile ? (
+            {atcute.session ? (
               <DropdownMenu id="dropdown-account">
                 <button
                   type="button"
@@ -30,7 +27,7 @@ export async function MarketingLayout({ children }: { children?: JSXChild }) {
                   class="btn"
                   data-variant="outline"
                 >
-                  {profile.displayName}
+                  {atcute.session.did}
                 </button>
                 <div
                   id="dropdown-account-popover"
@@ -47,12 +44,6 @@ export async function MarketingLayout({ children }: { children?: JSXChild }) {
                     method="post"
                     action="/oauth/logout"
                   >
-                    <div role="group" aria-labelledby="dropdown-account-account">
-                      <div role="heading" id="dropdown-account-account">
-                        {profile.handle}
-                      </div>
-                    </div>
-                    <hr role="separator" />
                     <button type="submit" role="menuitem">
                       Logout
                     </button>

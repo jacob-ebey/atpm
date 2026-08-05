@@ -1,26 +1,30 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "at-starter",
-  "compatibility_date": "2026-08-01",
+  "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "AT_STARTER",
+      "database_id": "aa53c444-6024-4e34-93c8-4b3e59934fac",
+      "migrations_dir": "drizzle",
+      "migrations_pattern": "drizzle/*/*.sql",
+    },
+  ],
   "durable_objects": {
     "bindings": [
       {
         "class_name": "AtprotoStore",
         "name": "ATPROTO_STORE",
       },
-      {
-        "class_name": "Profile",
-        "name": "PROFILE",
-      },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["AtprotoStore", "Profile"],
-      "new_sqlite_classes": [],
+      "new_classes": ["AtprotoStore"],
     },
   ],
 }
