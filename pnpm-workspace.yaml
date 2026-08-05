@@ -7,9 +7,6 @@ catalog:
   "@atcute/atproto": 4.0.4
   "@atcute/bluesky": 4.0.17
   "@atcute/client": 5.1.1
-  "@atcute/identity": 2.0.2
-  "@atcute/identity-resolver": 2.0.1
-  "@atcute/identity-resolver-node": 2.0.1
   "@atcute/lexicons": 2.0.3
   "@atcute/oauth-node-client": 2.0.1
   "@cloudflare/vite-plugin": 1.50.0

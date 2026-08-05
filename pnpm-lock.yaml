@@ -214,15 +214,6 @@ catalogs:
     '@atcute/client':
       specifier: 5.1.1
       version: 5.1.1
-    '@atcute/identity':
-      specifier: 2.0.2
-      version: 2.0.2
-    '@atcute/identity-resolver':
-      specifier: 2.0.1
-      version: 2.0.1
-    '@atcute/identity-resolver-node':
-      specifier: 2.0.1
-      version: 2.0.1
     '@atcute/lexicons':
       specifier: 2.0.3
       version: 2.0.3
@@ -297,15 +288,6 @@ importers:
       '@atcute/client':
         specifier: 'catalog:'
         version: 5.1.1(@atcute/lexicons@2.0.3)(typescript@7.0.2)
-      '@atcute/identity':
-        specifier: 'catalog:'
-        version: 2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2)
-      '@atcute/identity-resolver':
-        specifier: 'catalog:'
-        version: 2.0.1(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(@atcute/lexicons@2.0.3)(typescript@7.0.2)
-      '@atcute/identity-resolver-node':
-        specifier: 'catalog:'
-        version: 2.0.1(@atcute/identity-resolver@2.0.1(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(@atcute/lexicons@2.0.3)(typescript@7.0.2))(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(@atcute/lexicons@2.0.3)
       '@atcute/lexicons':
         specifier: 'catalog:'
         version: 2.0.3
