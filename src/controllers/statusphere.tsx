@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 
 import { Body, Head } from "@/components/document";
-import { MarketingLayout } from "@/containers/marketing-layout";
+import { StatusphereLayout } from "@/containers/statusphere-layout";
 
 const app = new Hono<Env>();
 
@@ -13,7 +13,7 @@ app.get("/", async (c) => {
         <meta name="description" content="The batteries-included AT Protocol starter." />
       </Head>
       <Body>
-        <MarketingLayout>
+        <StatusphereLayout>
           <main>
             <section class="c-x c-y">
               <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
@@ -64,7 +64,7 @@ app.get("/", async (c) => {
               </div>
             </section>
           </main>
-        </MarketingLayout>
+        </StatusphereLayout>
       </Body>
     </html>,
   );
