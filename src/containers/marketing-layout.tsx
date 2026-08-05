@@ -6,9 +6,9 @@ import { getContext } from "hono/context-storage";
 
 export async function MarketingLayout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
-  const atproto = c.get("atproto");
-  const profile = atproto?.session.did
-    ? await c.env.PROFILE.getByName(atproto.session.did).get()
+  const atcute = c.get("atcute");
+  const profile = atcute.session?.did
+    ? await c.env.PROFILE.getByName(atcute.session.did).get()
     : undefined;
 
   return (

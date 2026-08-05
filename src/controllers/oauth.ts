@@ -1,7 +1,7 @@
 import { ComAtprotoIdentityResolveIdentity } from "@atcute/atproto";
 import { AppBskyActorGetProfile } from "@atcute/bluesky";
 import { Client } from "@atcute/client";
-import { isActorIdentifier, type ActorIdentifier } from "@atcute/lexicons/syntax";
+import { type ActorIdentifier } from "@atcute/lexicons/syntax";
 import { Hono } from "hono";
 import { clearSessionDid, setSessionDid } from "hono-atcute";
 import * as v from "valibot";
@@ -16,7 +16,7 @@ const LoginSchema = v.object({
 });
 
 app.post("/login", async (c) => {
-  const oauth = c.get("oauth");
+  const atcute = c.get("atcute");
   const formData = Object.fromEntries(await c.req.formData());
   const parsed = v.safeParse(LoginSchema, formData);
 
@@ -25,7 +25,7 @@ app.post("/login", async (c) => {
   }
 
   try {
-    const result = await oauth.authorize({
+    const result = await atcute.oauth.authorize({
       target: {
         type: "account",
         identifier: parsed.output.handle as ActorIdentifier,
@@ -41,23 +41,17 @@ app.post("/login", async (c) => {
 
 app.post("/logout", async (c) => {
   clearSessionDid(c);
+  await c
+    .get("atcute")
+    .session?.signOut()
+    .catch(() => {});
   return c.redirect(new URL("/", c.req.url));
 });
 
-app.get("/authorize", async (c) => {
-  const identifier = new URL(c.req.url).searchParams.get("identifier");
-
-  if (!isActorIdentifier(identifier)) return c.redirect(new URL("/", c.req.url));
-
-  const oauth = c.get("oauth");
-  const authorization = await oauth.authorize({ target: { type: "account", identifier } });
-  return c.redirect(authorization.url);
-});
-
 app.get("/callback", async (c) => {
-  const oauth = c.get("oauth");
+  const atcute = c.get("atcute");
   try {
-    const result = await oauth.callback(new URL(c.req.url).searchParams);
+    const result = await atcute.oauth.callback(new URL(c.req.url).searchParams);
     const atproto = new Client({ handler: result.session });
 
     const profileStub = c.env.PROFILE.getByName(result.session.did);

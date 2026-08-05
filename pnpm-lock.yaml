@@ -251,8 +251,8 @@ catalogs:
       specifier: 4.13.0
       version: 4.13.0
     hono-atcute:
-      specifier: 0.0.4
-      version: 0.0.4
+      specifier: 0.0.6
+      version: 0.0.6
     htmx.org:
       specifier: 4.0.0-beta6
       version: 4.0.0-beta6
@@ -323,7 +323,7 @@ importers:
         version: 4.13.0
       hono-atcute:
         specifier: 'catalog:'
-        version: 0.0.4(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(typescript@7.0.2)
+        version: 0.0.6(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(typescript@7.0.2)
       htmx.org:
         specifier: 'catalog:'
         version: 4.0.0-beta6
@@ -1768,8 +1768,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  hono-atcute@0.0.4:
-    resolution: {integrity: sha512-UB0dCcy0QXsIXZMJ2LPTql/ez86uXf1c4AI9X60h3JHjInVQOg0n9dNeO+gO2EEsFqmQ1T33DY1a4ewDveIHWA==}
+  hono-atcute@0.0.6:
+    resolution: {integrity: sha512-J5uc/Ij6wUFY7ibXd+361PEjigt2/YtxS5pHZ05BmJ0A+SexVxw/bxFimVzUe00067noY3tUmXCjgWXMrENlhw==}
 
   hono@4.13.0:
     resolution: {integrity: sha512-jhunvfHWxd7J5EFfSgH4xsYJzSe/lfqbUCxiyyeaQasUsXeEHXtzVid+7EOGByc5JnFa23SSFL3Y2RV/z1T+eQ==}
@@ -3222,7 +3222,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  hono-atcute@0.0.4(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(typescript@7.0.2):
+  hono-atcute@0.0.6(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(typescript@7.0.2):
     dependencies:
       '@atcute/client': 5.1.1(@atcute/lexicons@2.0.3)(typescript@7.0.2)
       '@atcute/identity-resolver': 2.0.1(@atcute/identity@2.0.2(@atcute/lexicons@2.0.3)(typescript@7.0.2))(@atcute/lexicons@2.0.3)(typescript@7.0.2)
