@@ -22,7 +22,8 @@ export function ThemeToggle() {
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        class="dark:hidden"
+        aria-hidden="true"
+        class="hidden dark:inline-block"
       >
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M14.828 14.828a4 4 0 1 0 -5.656 -5.656a4 4 0 0 0 5.656 5.656" />
@@ -42,7 +43,8 @@ export function ThemeToggle() {
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        class="hidden dark:inline-block"
+        aria-hidden="true"
+        class="dark:hidden"
       >
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008" />

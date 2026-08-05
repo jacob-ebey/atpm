@@ -17,9 +17,10 @@ export function Head({ assets, children }: { assets?: ImportAssetsResult; childr
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="icon" href="/favicon.svg" />
       {children}
       <script
-        innerHTML={`if (window.localStorage.getItem("themeMode") === "dark") document.documentElement.classList.add("dark");`}
+        innerHTML={`(() => {let theme = window.localStorage.getItem("themeMode"); if (theme === "dark" || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add("dark");})();`}
       />
       {allAssets.css.map((css) => (
         <link rel="stylesheet" {...css} />

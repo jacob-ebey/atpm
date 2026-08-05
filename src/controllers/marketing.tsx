@@ -134,6 +134,7 @@ app.get("/", async (c) => {
                         commandfor="demo-dialog-edit-profile"
                       >
                         <svg
+                          aria-hidden="true"
                           xmlns="http://www.w3.org/2000/svg"
                           width="24"
                           height="24"
@@ -193,6 +194,7 @@ app.get("/", async (c) => {
               >
                 <span class="sr-only">Copy</span>
                 <svg
+                  aria-hidden="true"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -213,6 +215,7 @@ app.get("/", async (c) => {
               <a href="#" class="btn" data-size="lg" data-variant="ghost">
                 Learn More
                 <svg
+                  aria-hidden="true"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
