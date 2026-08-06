@@ -18,7 +18,6 @@ export function Head({ assets, children }: { assets?: ImportAssetsResult; childr
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <link rel="icon" href="/favicon.svg" />
-      <meta name="htmx-config" content='{"defaultSwapStyle":"outerHTML"}' />
       {children}
       <script
         innerHTML={`(() => {let theme = window.localStorage.getItem("themeMode"); if (theme === "dark" || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add("dark");})();`}

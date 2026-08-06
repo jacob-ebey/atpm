@@ -144,7 +144,7 @@ export function Toast({
   return toaster ? (
     <template for={toaster}>
       {toast}
-      <Marker name="toaster" />
+      <Marker name={toaster} />
     </template>
   ) : (
     toast

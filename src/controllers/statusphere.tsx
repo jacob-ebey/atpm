@@ -3,7 +3,8 @@ import { Hono } from "hono";
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
 import { createStatus, readUserStatus } from "@/models/status";
-import { Toast } from "@/components/ui/toast";
+import { Toast, Toaster } from "@/components/ui/toast";
+import { requireAuth } from "@/lib/auth";
 
 const app = new Hono<Env>();
 
@@ -76,19 +77,22 @@ app.get("/", async (c) => {
   );
 });
 
-app.on(["GET", "POST"], "/statusphere", async (c) => {
+app.on(["GET", "POST"], "/statusphere", requireAuth(), async (c) => {
   const hxRequest = c.req.method === "POST" && c.req.header("HX-Request") === "true";
 
   if (c.req.method === "POST") {
     const formData = await c.req.formData();
     const status = formData.get("status") as string;
     const created = await createStatus({ status });
+
     if (created.issues) {
       if (hxRequest) {
         return c.render(
           <>
             <EmojiForm />
-            <Toast toaster="toaster" category="error" title="Failed to create status" />
+            <Toaster>
+              <Toast category="error" title="Failed to create status" />
+            </Toaster>
           </>,
         );
       }
@@ -134,9 +138,12 @@ async function EmojiForm() {
 
   return (
     <form
-      hx-post
       class="flex flex-wrap gap-4 justify-center"
       method="post"
+      action="/statusphere"
+      hx-post="/statusphere"
+      hx-target="this"
+      hx-swap="outerHTML"
       hx-sync="this:abort"
       hx-browser-indicator="true"
     >

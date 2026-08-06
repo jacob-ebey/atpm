@@ -7,6 +7,8 @@ import { getContext } from "hono/context-storage";
 export async function Layout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
   const atcute = c.get("atcute");
+  const url = new URL(c.req.url);
+  const returnTo = url.searchParams.get("returnTo") || url.pathname + url.search;
 
   return (
     <>
@@ -80,6 +82,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
                         method="post"
                         action="/oauth/login"
                       >
+                        <input type="hidden" name="returnTo" value={returnTo} />
                         <div class="grid gap-3">
                           <label class="label sr-only" for="layout-login-dialog-username">
                             Handle
