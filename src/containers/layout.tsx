@@ -4,7 +4,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { getContext } from "hono/context-storage";
 
-export async function StatusphereLayout({ children }: { children?: JSXChild }) {
+export async function Layout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
   const atcute = c.get("atcute");
 

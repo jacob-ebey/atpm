@@ -10,6 +10,12 @@ import * as v from "valibot";
 import { invariant } from "@/lib/invariant";
 import { ComAtprotoRepoCreateRecord } from "@atcute/atproto";
 
+export type IssuesFor<A> = A extends (...args: any[]) => infer R
+  ? Awaited<R> extends Result<infer S, any>
+    ? v.FlatErrors<S>
+    : never
+  : never;
+
 export type Result<S extends v.ObjectSchema<any, any>, R> =
   | {
       success: false;

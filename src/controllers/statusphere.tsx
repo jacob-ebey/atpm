@@ -1,11 +1,16 @@
 import { Hono } from "hono";
 
 import { Body, Head } from "@/components/document";
-import { StatusphereLayout } from "@/containers/statusphere-layout";
+import { Layout } from "@/containers/layout";
+import { createStatus, readUserStatus } from "@/models/status";
 
 const app = new Hono<Env>();
 
 app.get("/", async (c) => {
+  const atcute = c.get("atcute");
+  if (atcute.session) {
+    return c.redirect(new URL("/statusphere", c.req.url));
+  }
   return c.render(
     <html lang="en">
       <Head>
@@ -13,7 +18,7 @@ app.get("/", async (c) => {
         <meta name="description" content="The batteries-included AT Protocol starter." />
       </Head>
       <Body>
-        <StatusphereLayout>
+        <Layout>
           <main>
             <section class="c-x c-y">
               <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
@@ -64,10 +69,175 @@ app.get("/", async (c) => {
               </div>
             </section>
           </main>
-        </StatusphereLayout>
+        </Layout>
       </Body>
     </html>,
   );
 });
+
+app.on(["GET", "POST"], "/statusphere", async (c) => {
+  if (c.req.method === "POST") {
+    const formData = await c.req.formData();
+    const status = formData.get("status") as string;
+    const created = await createStatus({ status });
+    if (created.issues) {
+      return c.redirect(
+        new URL(`/statusphere?error=${encodeURI("Failed to create status")}`, c.req.url),
+      );
+    }
+  }
+
+  const status = await readUserStatus();
+
+  return c.render(
+    <html lang="en">
+      <Head>
+        <title>Statusphere</title>
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="c-x py-4 md:py-8">
+              <div class="card">
+                <header>
+                  <h2>Statusphere</h2>
+                  <p>Set your satus on the Atmosphere</p>
+                </header>
+                <section>
+                  <form class="flex flex-wrap gap-4 justify-center" method="post">
+                    {emojis.map((emoji) => (
+                      <button
+                        type="submit"
+                        class="btn text-2xl"
+                        size="icon-lg"
+                        data-variant={emoji === status?.status ? "outline" : "ghost"}
+                        name="status"
+                        value={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </form>
+                </section>
+              </div>
+            </section>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+const emojis = [
+  "😀",
+  "😁",
+  "😂",
+  "🤣",
+  "😃",
+  "😄",
+  "😅",
+  "😆",
+  "😉",
+  "😊",
+  "😋",
+  "😎",
+  "😍",
+  "🥰",
+  "😘",
+  "😗",
+  "😙",
+  "😚",
+  "☺️",
+  "🙂",
+  "🤗",
+  "🤩",
+  "🤔",
+  "🤨",
+  "😐",
+  "😑",
+  "😶",
+  "🙄",
+  "😏",
+  "😣",
+  "😥",
+  "😮",
+  "🤐",
+  "😯",
+  "😪",
+  "😫",
+  "😴",
+  "😌",
+  "😛",
+  "😜",
+  "😝",
+  "🤤",
+  "😒",
+  "😓",
+  "😔",
+  "😕",
+  "🙃",
+  "🤑",
+  "😲",
+  "☹️",
+  "🙁",
+  "😖",
+  "😞",
+  "😟",
+  "😤",
+  "😢",
+  "😭",
+  "😦",
+  "😧",
+  "😨",
+  "😩",
+  "🤯",
+  "😬",
+  "😰",
+  "😱",
+  "🥵",
+  "🥶",
+  "😳",
+  "🤪",
+  "😵",
+  "😡",
+  "😠",
+  "🤬",
+  "😷",
+  "🤒",
+  "🤕",
+  "🤢",
+  "🤮",
+  "🥴",
+  "😇",
+  "🤠",
+  "🤡",
+  "🥳",
+  "🥺",
+  "🤥",
+  "🤫",
+  "🤭",
+  "🧐",
+  "🤓",
+  "😈",
+  "👿",
+  "👹",
+  "👺",
+  "💀",
+  "☠️",
+  "👻",
+  "👽",
+  "👾",
+  "🤖",
+  "💩",
+  "😺",
+  "😸",
+  "😹",
+  "😻",
+  "😼",
+  "😽",
+  "🙀",
+  "😿",
+  "😾",
+];
 
 export default app;

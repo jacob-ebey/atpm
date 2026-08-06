@@ -5,9 +5,9 @@ import * as v from "valibot";
 import * as s from "@/db/schema";
 import { XyzStatusphereStatus } from "@/lexicons";
 import { defineCreateRecord } from "@/lib/model";
+import { invariant } from "@/lib/invariant";
 
 const CreateStatusSchema = v.object({
-  authorDid: v.string(),
   status: v.string(),
 });
 
@@ -31,9 +31,15 @@ export const createStatus = defineCreateRecord(
   },
 );
 
-export async function readUserStatus(userDid: string) {
+export async function readUserStatus(userDid?: string) {
   const c = getContext();
   const db = c.get("db");
+
+  if (!userDid) {
+    const atcute = c.get("atcute");
+    invariant(atcute.session, "no session");
+    userDid = atcute.session.did;
+  }
 
   const [status] = await db
     .select()
