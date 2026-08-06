@@ -27,6 +27,9 @@ app.use(
   atcute({
     localdev: import.meta.env.DEV,
     callbackPath: "/oauth/callback",
+    metadata: {
+      client_name: "AT Starter",
+    },
     scope: () => [
       scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" }),
       scope.repo({ collection: ["xyz.statusphere.status"], action: ["create"] }),
