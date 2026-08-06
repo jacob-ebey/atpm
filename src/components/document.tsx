@@ -40,7 +40,7 @@ export function Body({ children }: { children?: JSXChild }) {
   const errors = url.searchParams.getAll("error");
 
   return (
-    <body hx-boost:inherited="true">
+    <body>
       <Toaster id="toaster">
         {errors.map((error) => (
           <Toast category="error" title={error} />
