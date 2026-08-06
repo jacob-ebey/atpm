@@ -51,7 +51,6 @@ app.post("/login", async (c) => {
     const redirect = new URL(parsed.output.returnTo, c.req.url);
     redirect.searchParams.set("returnTo", parsed.output.returnTo);
     redirect.searchParams.set("error", "Login Failed: Could not resolve handle");
-    console.log({ redirect: redirect.href });
     return c.redirect(redirect.href);
   }
 });

@@ -13,6 +13,7 @@ app.get("/", async (c) => {
   if (atcute.session) {
     return c.redirect(new URL("/statusphere", c.req.url));
   }
+
   return c.render(
     <html lang="en">
       <Head>

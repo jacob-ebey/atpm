@@ -10,6 +10,8 @@ export async function Layout({ children }: { children?: JSXChild }) {
   const url = new URL(c.req.url);
   const returnTo = url.searchParams.get("returnTo") || url.pathname + url.search;
 
+  const openLoginForm = url.searchParams.has("returnTo");
+
   return (
     <>
       <header class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background">
@@ -69,6 +71,10 @@ export async function Layout({ children }: { children?: JSXChild }) {
                   aria-labelledby="layout-login-dialog-title"
                   aria-describedby="layout-login-dialog-description"
                   closedby="any"
+                  ref={(el) => {
+                    "use client";
+                    if (openLoginForm) el.showModal();
+                  }}
                 >
                   <div class="sm:max-w-sm">
                     <header>
