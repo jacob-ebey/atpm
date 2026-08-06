@@ -8,7 +8,7 @@ declare module "hono" {
 }
 
 export const database = (): MiddlewareHandler => async (c, next) => {
-  const db = drizzle(c.env.DB, {});
+  const db = drizzle(c.env.DB);
   c.set("db", db);
   await next();
 };
