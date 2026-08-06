@@ -4,7 +4,7 @@ import tailwind from "@tailwindcss/vite";
 import jsx from "srv-jsx/vite";
 import { defineConfig } from "vite-plus";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   server: {
     host: "127.0.0.1",
   },
@@ -31,10 +31,11 @@ export default defineConfig({
     jsx(),
     tailwind(),
     fullstack({ serverEnvironments: ["ssr"], serverHandler: false }),
-    cloudflare({
-      persistState: true,
-      viteEnvironment: { name: "ssr" },
-    }),
+    mode !== "test" &&
+      cloudflare({
+        persistState: true,
+        viteEnvironment: { name: "ssr" },
+      }),
   ],
   staged: {
     "*": "vp check --fix",
@@ -45,4 +46,4 @@ export default defineConfig({
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
   },
-});
+}));

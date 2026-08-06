@@ -7,8 +7,10 @@ export const htmxRedirects = (): MiddlewareHandler => async (c, next) => {
     const location = c.res.headers.get("Location");
     if (!location) return;
     c.res.headers.delete("Location");
-    c.header("HX-Redirect", location);
     c.status(204);
-    return c.body(null);
+    c.header("HX-Redirect", location);
+    const res = c.body(null);
+    c.res = res;
+    return res;
   }
 };

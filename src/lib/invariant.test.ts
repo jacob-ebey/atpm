@@ -22,13 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
 
-const PREFIX: string = "Invariant failed";
+import { expect, test } from "vite-plus/test";
+import { invariant } from "./invariant";
 
-export function invariant(condition: any, message?: string | (() => string)): asserts condition {
-  if (condition) {
-    return;
-  }
-  const provided: string | undefined = typeof message === "function" ? message() : message;
+test("should not throw if condition is truthy", () => {
+  const truthy: unknown[] = [1, -1, true, {}, [], Symbol(), "hi"];
+  truthy.forEach((value: unknown) => expect(() => invariant(value)).not.toThrow());
+});
 
-  throw new Error(provided ? `${PREFIX}: ${provided}` : PREFIX);
-}
+test("should throw if the condition is falsy", () => {
+  const falsy: unknown[] = [undefined, null, false, +0, -0, NaN, ""];
+  falsy.forEach((value: unknown) => expect(() => invariant(value)).toThrow());
+});
