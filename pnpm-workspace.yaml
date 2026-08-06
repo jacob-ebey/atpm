@@ -32,6 +32,9 @@ catalog:
   wrangler: 4.119.0
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.7
+peerDependencyRules:
+  allowAny:
+    - vite
 minimumReleaseAgeExclude:
   - srv-jsx@0.0.12
   - hono-atcute@0.0.9
