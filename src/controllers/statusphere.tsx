@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { Suspense } from "srv-jsx";
 
 import { Body, Head } from "@/components/document";
 import { Toast, Toaster } from "@/components/ui/toast";
@@ -6,7 +7,6 @@ import { Layout } from "@/containers/layout";
 import { requireAuth } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
 import { createStatus, readRecentStatuses, readUserStatus } from "@/models/status";
-import { Suspense } from "srv-jsx";
 
 const app = new Hono<Env>();
 
