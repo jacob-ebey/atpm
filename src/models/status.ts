@@ -50,3 +50,21 @@ export async function readUserStatus(userDid?: string) {
 
   return status as s.StatusRow | undefined;
 }
+
+export async function readRecentStatuses() {
+  const response = await fetch(
+    "https://ufos-api.microcosm.blue/records?collection=xyz.statusphere.status&limit=1",
+  );
+  const json = await response.json();
+  return json as {
+    did: string;
+    collection: "xyz.statusphere.status";
+    rkey: string;
+    record: {
+      $type: "xyz.statusphere.status";
+      createdAt: string;
+      status: string;
+    };
+    time_us: number;
+  }[];
+}

@@ -5,7 +5,8 @@ import { Toast, Toaster } from "@/components/ui/toast";
 import { Layout } from "@/containers/layout";
 import { requireAuth } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
-import { createStatus, readUserStatus } from "@/models/status";
+import { createStatus, readRecentStatuses, readUserStatus } from "@/models/status";
+import { Suspense } from "srv-jsx";
 
 const app = new Hono<Env>();
 
@@ -128,6 +129,32 @@ app.on(["GET", "POST"], "/statusphere", requireAuth(), async (c) => {
                 </section>
               </div>
             </section>
+            <section class="c-x py-4 md:py-8">
+              <div class="card">
+                <header>
+                  <h2>Recent Statuses</h2>
+                  <p>What's everyone emoting?</p>
+                </header>
+                <section>
+                  <Suspense
+                    fallback={
+                      <div>
+                        {Array.from({ length: 10 }).map(() => (
+                          <div class="flex items-center gap-4 h-15.5 px-4">
+                            <div class="skeleton size-8 shrink-0 rounded-full"></div>
+                            <div class="grid gap-2">
+                              <div class="skeleton h-4 w-58"></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  >
+                    <RecentStatuses />
+                  </Suspense>
+                </section>
+              </div>
+            </section>
           </main>
         </Layout>
       </Body>
@@ -163,6 +190,30 @@ async function EmojiForm() {
         </button>
       ))}
     </form>
+  );
+}
+
+async function RecentStatuses() {
+  const statuses = await readRecentStatuses();
+  return (
+    <div>
+      {statuses.map((status) => (
+        <div class="item">
+          <figure>
+            <svg viewBox="0 0 100 100" class="size-8">
+              <foreignObject width="100" height="100">
+                <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; font-size:80px;">
+                  {status.record.status}
+                </div>
+              </foreignObject>
+            </svg>
+          </figure>
+          <section>
+            <p>{status.did}</p>
+          </section>
+        </div>
+      ))}
+    </div>
   );
 }
 
