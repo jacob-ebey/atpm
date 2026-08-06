@@ -1,5 +1,6 @@
 import "basecoat-css/all";
 import "htmx.org";
+import "htmx.org/dist/ext/hx-browser-indicator";
 
 function areProcessingDirectivesSupported() {
   const el = document.createElement("div");

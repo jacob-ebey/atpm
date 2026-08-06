@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
 import { createStatus, readUserStatus } from "@/models/status";
+import { Toast } from "@/components/ui/toast";
 
 const app = new Hono<Env>();
 
@@ -76,18 +77,31 @@ app.get("/", async (c) => {
 });
 
 app.on(["GET", "POST"], "/statusphere", async (c) => {
+  const hxRequest = c.req.method === "POST" && c.req.header("HX-Request") === "true";
+
   if (c.req.method === "POST") {
     const formData = await c.req.formData();
     const status = formData.get("status") as string;
     const created = await createStatus({ status });
     if (created.issues) {
+      if (hxRequest) {
+        return c.render(
+          <>
+            <EmojiForm />
+            <Toast toaster="toaster" category="error" title="Failed to create status" />
+          </>,
+        );
+      }
+
       return c.redirect(
         new URL(`/statusphere?error=${encodeURI("Failed to create status")}`, c.req.url),
       );
     }
   }
 
-  const status = await readUserStatus();
+  if (hxRequest) {
+    return c.render(<EmojiForm />);
+  }
 
   return c.render(
     <html lang="en">
@@ -104,20 +118,7 @@ app.on(["GET", "POST"], "/statusphere", async (c) => {
                   <p>Set your satus on the Atmosphere</p>
                 </header>
                 <section>
-                  <form class="flex flex-wrap gap-4 justify-center" method="post">
-                    {emojis.map((emoji) => (
-                      <button
-                        type="submit"
-                        class="btn text-2xl"
-                        size="icon-lg"
-                        data-variant={emoji === status?.status ? "outline" : "ghost"}
-                        name="status"
-                        value={emoji}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </form>
+                  <EmojiForm />
                 </section>
               </div>
             </section>
@@ -127,6 +128,33 @@ app.on(["GET", "POST"], "/statusphere", async (c) => {
     </html>,
   );
 });
+
+async function EmojiForm() {
+  const status = await readUserStatus();
+
+  return (
+    <form
+      hx-post
+      class="flex flex-wrap gap-4 justify-center"
+      method="post"
+      hx-sync="this:abort"
+      hx-browser-indicator="true"
+    >
+      {emojis.map((emoji) => (
+        <button
+          type="submit"
+          class="btn text-2xl"
+          size="icon-lg"
+          data-variant={emoji === status?.status ? "outline" : "ghost"}
+          name="status"
+          value={emoji}
+        >
+          {emoji}
+        </button>
+      ))}
+    </form>
+  );
+}
 
 const emojis = [
   "😀",
