@@ -8,9 +8,9 @@ export async function Layout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
   const atcute = c.get("atcute");
   const url = new URL(c.req.url);
-  const returnTo = url.searchParams.get("returnTo") || url.pathname + url.search;
+  const returnTo = url.searchParams.get("returnTo") || url.pathname;
 
-  const openLoginForm = url.searchParams.has("returnTo");
+  const openLoginForm = url.searchParams.has("login");
 
   return (
     <>
