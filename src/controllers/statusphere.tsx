@@ -4,6 +4,7 @@ import { Body, Head } from "@/components/document";
 import { Toast, Toaster } from "@/components/ui/toast";
 import { Layout } from "@/containers/layout";
 import { requireAuth } from "@/lib/auth";
+import { clsx } from "@/lib/clsx";
 import { createStatus, readUserStatus } from "@/models/status";
 
 const app = new Hono<Env>();
@@ -144,18 +145,19 @@ async function EmojiForm() {
       action="/statusphere"
       hx-post="/statusphere"
       hx-target="this"
-      hx-swap="outerHTML"
-      hx-sync="this:abort"
+      hx-swap="outerHTML transition:true"
+      hx-sync="this:queue last"
       hx-browser-indicator="true"
     >
       {emojis.map((emoji) => (
         <button
           type="submit"
-          class="btn text-2xl"
+          class={clsx("btn text-2xl", emoji === status?.status && "order-first")}
           size="icon-lg"
           data-variant={emoji === status?.status ? "outline" : "ghost"}
           name="status"
           value={emoji}
+          style={`view-transition-name: status-${emoji}`}
         >
           {emoji}
         </button>

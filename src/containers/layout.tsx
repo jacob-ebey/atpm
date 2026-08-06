@@ -15,11 +15,11 @@ export async function Layout({ children }: { children?: JSXChild }) {
   return (
     <>
       <header class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background">
-        <div class="flex h-16 max-w-7xl items-center gap-8 c-x">
-          <a href="/" class="text-lg font-semibold">
+        <div class="flex items-center gap-2 c-x py-4">
+          <a href="/" class="text-lg font-semibold text-nowrap hidden sm:block py-1">
             AT Starter
           </a>
-          <div class="flex-1 flex items-center justify-end gap-2">
+          <div class="flex-1 flex flex-wrap-reverse items-center justify-end gap-2">
             {atcute.session ? (
               <DropdownMenu id="dropdown-account">
                 <button
