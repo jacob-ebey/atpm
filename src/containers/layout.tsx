@@ -14,7 +14,10 @@ export async function Layout({ children }: { children?: JSXChild }) {
 
   return (
     <>
-      <header class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background">
+      <header
+        class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background"
+        style="view-transition-name: layout-header;"
+      >
         <div class="flex items-center gap-2 c-x py-4">
           <a href="/" class="text-lg font-semibold text-nowrap hidden sm:block py-1">
             AT Starter

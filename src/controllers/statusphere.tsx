@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { getContext } from "hono/context-storage";
 import { Suspense } from "srv-jsx";
 
 import { Body, Head } from "@/components/document";
@@ -7,6 +8,7 @@ import { Layout } from "@/containers/layout";
 import { requireAuth } from "@/lib/auth";
 import { clsx } from "@/lib/clsx";
 import { createStatus, readRecentStatuses, readUserStatus } from "@/models/status";
+import { invariant } from "@/lib/invariant";
 
 const app = new Hono<Env>();
 
@@ -81,33 +83,38 @@ app.get("/", async (c) => {
 });
 
 app.on(["GET", "POST"], "/statusphere", requireAuth(), async (c) => {
-  const hxRequest = c.req.method === "POST" && c.req.header("HX-Request") === "true";
+  const atcute = c.get("atcute");
+  invariant(atcute.session, "no session");
 
+  let created: Awaited<ReturnType<typeof createStatus>> | undefined;
   if (c.req.method === "POST") {
     const formData = await c.req.formData();
     const status = formData.get("status") as string;
-    const created = await createStatus({ status });
-
-    if (created.issues) {
-      if (hxRequest) {
-        return c.render(
-          <>
-            <EmojiForm />
-            <Toaster>
-              <Toast category="error" title="Failed to create status" />
-            </Toaster>
-          </>,
-        );
-      }
-
-      return c.redirect(
-        new URL(`/statusphere?error=${encodeURI("Failed to create status")}`, c.req.url),
-      );
-    }
+    created = await createStatus({ status });
   }
 
-  if (hxRequest) {
-    return c.render(<EmojiForm />);
+  if (c.req.method === "POST" && c.req.header("HX-Request") === "true") {
+    return c.render(
+      <>
+        <EmojiForm />
+        {created?.issues ? (
+          <Toaster>
+            <Toast category="error" title="Failed to create status" />
+          </Toaster>
+        ) : null}
+        {created?.result ? (
+          <div id="recent-statuses" hx-swap-oob="prepend">
+            <RecentStatus did={atcute.session.did} status={created.result.status} />
+          </div>
+        ) : null}
+      </>,
+    );
+  }
+
+  if (created?.issues) {
+    return c.redirect(
+      new URL(`/statusphere?error=${encodeURI("Failed to create status")}`, c.req.url),
+    );
   }
 
   return c.render(
@@ -163,6 +170,10 @@ app.on(["GET", "POST"], "/statusphere", requireAuth(), async (c) => {
 });
 
 async function EmojiForm() {
+  const c = getContext();
+  const atcute = c.get("atcute");
+  invariant(atcute.session, "no session");
+
   const status = await readUserStatus();
 
   return (
@@ -196,23 +207,29 @@ async function EmojiForm() {
 async function RecentStatuses() {
   const statuses = await readRecentStatuses();
   return (
-    <div>
+    <div id="recent-statuses">
       {statuses.map((status) => (
-        <div class="item">
-          <figure>
-            <svg viewBox="0 0 100 100" class="size-8">
-              <foreignObject width="100" height="100">
-                <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; font-size:80px;">
-                  {status.record.status}
-                </div>
-              </foreignObject>
-            </svg>
-          </figure>
-          <section>
-            <p>{status.did}</p>
-          </section>
-        </div>
+        <RecentStatus did={status.did} status={status.record.status} />
       ))}
+    </div>
+  );
+}
+
+function RecentStatus({ did, status }: { did: string; status: string }) {
+  return (
+    <div class="item">
+      <figure>
+        <svg viewBox="0 0 100 100" class="size-8">
+          <foreignObject width="100" height="100">
+            <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; font-size:80px;">
+              {status}
+            </div>
+          </foreignObject>
+        </svg>
+      </figure>
+      <section>
+        <p>{did}</p>
+      </section>
     </div>
   );
 }
