@@ -19,7 +19,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_classes": ["AtprotoStore"],
+      "new_classes": ["AtprotoStore", "CliAuthSession"],
     },
   ],
 }
