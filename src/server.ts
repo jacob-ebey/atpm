@@ -5,13 +5,15 @@ import { csrf } from "hono/csrf";
 import { atcute } from "hono-atcute";
 import { createStores } from "hono-atcute/cloudflare";
 
-import statusphere from "@/controllers/statusphere";
+import appController from "@/controllers/app";
+import registry from "@/controllers/registry";
 import oauth from "@/controllers/oauth";
 import { database } from "@/db/middleware";
 import { htmxRedirects } from "@/lib/htmx";
 import { srvJsxRenderer } from "@/lib/renderer";
 
 export { AtprotoStore } from "hono-atcute/cloudflare";
+export { CliAuthSession } from "@/models/cli-auth-session";
 
 declare global {
   interface Env {
@@ -42,7 +44,8 @@ app.use(
   htmxRedirects(),
 );
 
-app.route("", statusphere);
+app.route("/", appController);
+app.route("/registry", registry);
 app.route("/oauth", oauth);
 
 export default app;

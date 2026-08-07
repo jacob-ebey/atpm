@@ -25,16 +25,20 @@
     "hono-atcute": "catalog:",
     "htmx.org": "catalog:",
     "invokers-polyfill": "catalog:",
+    "package-json-validator": "catalog:",
     "srv-jsx": "catalog:",
     "template-for-polyfill": "catalog:",
-    "valibot": "catalog:"
+    "valibot": "catalog:",
+    "validate-npm-package-name": "catalog:"
   },
   "devDependencies": {
     "@atcute/lex-cli": "catalog:",
     "@cloudflare/vite-plugin": "catalog:",
     "@hiogawa/vite-plugin-fullstack": "catalog:",
+    "@npm/types": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "@types/validate-npm-package-name": "catalog:",
     "drizzle-kit": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",

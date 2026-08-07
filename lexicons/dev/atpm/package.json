@@ -1,0 +1,35 @@
+{
+  "$type": "com.atproto.lexicon.schema",
+  "defs": {
+    "main": {
+      "key": "any",
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": [
+          "createdAt",
+          "type",
+          "versions"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tags": {
+            "type": "unknown"
+          },
+          "versions": {
+            "type": "unknown"
+          }
+        }
+      }
+    }
+  },
+  "id": "dev.atpm.package",
+  "lexicon": 1
+}

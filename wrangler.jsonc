@@ -19,6 +19,10 @@
         "class_name": "AtprotoStore",
         "name": "ATPROTO_STORE",
       },
+      {
+        "class_name": "CliAuthSession",
+        "name": "CLI_AUTH_SESSION",
+      },
     ],
   },
   "migrations": [

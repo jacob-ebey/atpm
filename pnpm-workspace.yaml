@@ -11,9 +11,11 @@ catalog:
   "@atcute/oauth-node-client": 2.0.1
   "@cloudflare/vite-plugin": 1.51.0
   "@hiogawa/vite-plugin-fullstack": 0.0.11
+  "@npm/types": 2.1.0
   "@standard-schema/spec": 1.1.0
   "@tailwindcss/vite": 4.3.3
   "@types/node": ^24.13.3
+  "@types/validate-npm-package-name": 4.0.2
   basecoat-css: 1.0.2
   chart.js: 4.5.1
   drizzle-kit: 1.0.0-rc.4
@@ -22,11 +24,13 @@ catalog:
   hono-atcute: 0.0.10
   htmx.org: 4.0.0-beta6
   invokers-polyfill: 1.0.3
+  package-json-validator: 1.6.0
   srv-jsx: 0.0.12
   tailwindcss: 4.3.3
   template-for-polyfill: 0.1.1
   typescript: 7.0.2
   valibot: 1.4.2
+  validate-npm-package-name: 8.0.0
   vite: npm:@voidzero-dev/vite-plus-core@0.2.7
   vite-plus: 0.2.7
   wrangler: 4.119.0

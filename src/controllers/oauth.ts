@@ -32,11 +32,12 @@ app.post("/login", async (c) => {
   if (!parsed.success) {
     const returnTo = v.parse(ReturnToSchema, formData.returnTo);
     const redirect = new URL(returnTo, c.req.url);
-    if (typeof formData.returnTo === "string")
-      redirect.searchParams.set("returnTo", formData.returnTo);
+    redirect.searchParams.set("returnTo", returnTo);
     redirect.searchParams.set("error", "Login Failed: Invalid handle");
     return c.redirect(redirect.href);
   }
+
+  console.log({ returnTo: parsed.output.returnTo });
 
   try {
     const result = await atcute.oauth.authorize({
@@ -66,6 +67,7 @@ app.get("/callback", async (c) => {
   const atcute = c.get("atcute");
   try {
     const result = await atcute.oauth.callback(new URL(c.req.url).searchParams);
+    console.log({ state: result.state });
     const returnTo = v.parse(ReturnToSchema, result.state);
     await setSessionDid(c, result.session.did);
     return c.redirect(new URL(returnTo, c.req.url));
