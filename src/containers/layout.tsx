@@ -16,7 +16,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
       >
         <div class="flex items-center gap-2 c-x py-4">
           <a href="/" class="text-lg font-semibold text-nowrap hidden sm:block py-1">
-            AT Starter
+            ATPM
           </a>
           <div class="flex-1 flex flex-wrap-reverse items-center justify-end gap-2">
             {atcute.session ? (
@@ -53,7 +53,11 @@ export async function Layout({ children }: { children?: JSXChild }) {
                   </form>
                 </div>
               </DropdownMenu>
-            ) : null}
+            ) : (
+              <a href="/login" class="btn" data-variant="outline">
+                Login
+              </a>
+            )}
             <ThemeToggle />
           </div>
         </div>

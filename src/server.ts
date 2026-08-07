@@ -8,7 +8,6 @@ import { createStores } from "hono-atcute/cloudflare";
 import appController from "@/controllers/app";
 import registry from "@/controllers/registry";
 import oauth from "@/controllers/oauth";
-import { database } from "@/db/middleware";
 import { htmxRedirects } from "@/lib/htmx";
 import { srvJsxRenderer } from "@/lib/renderer";
 
@@ -30,16 +29,16 @@ app.use(
     localdev: import.meta.env.DEV,
     callbackPath: "/oauth/callback",
     metadata: (c) => ({
-      client_name: "AT Starter",
+      client_name: "ATPM",
       logo_uri: new URL("/favicon.svg", c.req.url).href,
     }),
     scope: () => [
       scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" }),
-      scope.repo({ collection: ["xyz.statusphere.status"], action: ["create"] }),
+      scope.repo({ collection: ["dev.atpm.package"], action: ["create", "update", "delete"] }),
+      scope.blob({ accept: ["application/octet-stream"] }),
     ],
     stores: (c) => createStores(c.env.ATPROTO_STORE),
   }),
-  database(),
   srvJsxRenderer(),
   htmxRedirects(),
 );

@@ -1,18 +1,30 @@
-import { type ActorIdentifier } from "@atcute/lexicons";
+import { type ActorIdentifier, type Did } from "@atcute/lexicons";
 import type * as npm from "@npm/types";
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import validatePackageName from "validate-npm-package-name";
 
 import { Client, simpleFetchHandler } from "@atcute/client";
-import { sign } from "@/lib/sign";
+import { sign, validate } from "@/lib/sign";
+import {
+  ComAtprotoRepoGetRecord,
+  ComAtprotoRepoPutRecord,
+  ComAtprotoRepoUploadBlob,
+} from "@atcute/atproto";
+import { DevAtpmPackage } from "@/lexicons";
+import { base64ToBlob } from "@/lib/base64";
 
 const app = new Hono<Env>();
 
 app.get("/:package", async (c) => {
+  console.log(c.req.url);
   const atcute = c.get("atcute");
   const packageParam = c.req.param("package");
 
-  if (!packageParam.startsWith("@") || !validatePackageName(packageParam).validForNewPackages) {
+  if (!packageParam.startsWith("@")) {
+    return proxyRequest(c);
+  }
+
+  if (!validatePackageName(packageParam).validForNewPackages) {
     return c.json({ error: "invalid package name" }, { status: 400 });
   }
 
@@ -24,7 +36,7 @@ app.get("/:package", async (c) => {
     .catch(() => undefined);
 
   if (!resolved) {
-    return c.json({ error: "package not found" }, { status: 404 });
+    return proxyRequest(c);
   }
 
   const client = new Client({ handler: simpleFetchHandler({ service: resolved.pds }) });
@@ -38,33 +50,164 @@ app.get("/:package", async (c) => {
   });
 
   if (!recordResponse.ok) {
-    return c.json({ error: "package not found" }, { status: 404 });
+    return proxyRequest(c);
+  }
+
+  const data = recordResponse.data.value as DevAtpmPackage.Main;
+
+  if (data.type !== "npm") return proxyRequest(c);
+
+  const versions: Record<string, npm.PackumentVersion> = {};
+  let modified: number = new Date(data.createdAt).getTime();
+
+  for (const pkg of data.versions) {
+    versions[pkg.version] = pkg.meta as npm.PackumentVersion;
+    if (new Date(pkg.createdAt).getTime() > modified) {
+      modified = new Date(pkg.createdAt).getTime();
+    }
   }
 
   return c.json({
     _rev: recordResponse.data.cid || recordResponse.data.uri,
     _id: `${resolved.did}/${packageName}`,
     name: `@${handle}/${packageName}`,
-    "dist-tags": {},
+    "dist-tags": data.tags as Record<string, string>,
     time: {
-      modified: "",
-      created: "",
+      created: data.createdAt,
+      modified: new Date(modified).toISOString(),
     },
-    versions: {},
+    versions,
   } satisfies npm.Packument);
 });
 
-app.put("/:package", (c) => {
-  console.log("PUT");
-  return c.json({ error: "not found" }, { status: 404 });
-});
+app.put("/:package", async (c) => {
+  const packageParam = c.req.param("package");
+  const [scope, name] = packageParam.split("/");
+  if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
 
-app.get("/:packageName/-/:tarballName", (c) => {
-  return c.json({ error: "not found" }, { status: 404 });
-});
+  const authorization = c.req.header("Authorization")?.replace(/^Bearer /, "");
+  if (!authorization) return c.json({ error: 'missing "Bearer" header.' }, 401);
+  const validated = await validate(authorization, c.env.SESSION_SECRET);
+  if (!validated.ok) return c.json({ error: "invalid authorization" }, 401);
+  const [sessionId, secret] = validated.value.split(".");
+  if (!sessionId || !secret) return c.json({ error: "invalid authorization" }, 401);
+  const session = c.env.CLI_AUTH_SESSION.getByName(sessionId);
+  const result = await session.poll();
+  if (result.state !== "done" || !result.secret) return c.json({ error: "invalid session" }, 401);
+  if (result.secret !== secret || !result.did) return c.json({ error: "secret miss-match" }, 401);
+  const atcute = c.get("atcute");
+  const atcuteSession = await atcute.oauth.restore(result.did as Did).catch(() => undefined);
+  if (!atcuteSession) return c.json({ error: "invalid atproto session" }, 401);
+  const actor = await atcute.actorResolver.resolve(atcuteSession.did).catch(() => undefined);
+  if (!actor?.pds) return c.json({ error: "actor not found" }, 404);
 
-app.get("/:packageScope/:packageName/-/:tarballScope/:tarballName", (c) => {
-  return c.json({ error: "not found" }, { status: 404 });
+  if (scope.slice(1) !== actor.handle)
+    return c.json({ error: "scope does not match actor handle" }, 403);
+
+  const client = new Client({ handler: atcuteSession });
+
+  const body = (await c.req.json()) as {
+    _id: string;
+    access: null | string;
+    name: string;
+    "dist-tags": Record<string, string>;
+    versions: Record<
+      string,
+      {
+        _id: string;
+        _nodeVersion: string;
+        _npmVersion: string;
+        name: string;
+        version: string;
+        dependencies: Record<string, string>;
+        readme: string;
+        dist: {
+          integrity: string;
+          shasum: string;
+          tarball: string;
+        };
+      }
+    >;
+    _attachments: Record<
+      string,
+      {
+        content_type: string;
+        data: string;
+        length: number;
+      }
+    >;
+  };
+
+  const existingPackage = await client.call(ComAtprotoRepoGetRecord, {
+    params: {
+      repo: atcuteSession.did,
+      collection: "dev.atpm.package",
+      rkey: name,
+    },
+  });
+
+  const versions: DevAtpmPackage.Package[] = existingPackage?.ok
+    ? [...(existingPackage.data.value.versions as DevAtpmPackage.Package[])]
+    : [];
+
+  console.log(body._attachments);
+  for (const [version, meta] of Object.entries(body.versions)) {
+    if (versions.some((v) => v.version === version))
+      return c.json({ error: "version already exists" }, 403);
+
+    const tarballName = `${scope}/${name}-${version}.tgz`;
+    const attachment = body._attachments[tarballName];
+    if (!attachment) return c.json({ error: "missing attachment" }, 400);
+
+    const input = await base64ToBlob(attachment).catch(() => undefined);
+    if (!input) return c.json({ error: "invalid attachment" }, 400);
+
+    const blob = await client
+      .call(ComAtprotoRepoUploadBlob, { input, signal: c.req.raw.signal })
+      .catch(() => undefined);
+    if (!blob?.ok) return c.json({ error: "failed to upload blob" }, 500);
+    const tarballUrl = new URL(actor.pds);
+    tarballUrl.pathname = "/xrpc/com.atproto.sync.getBlob";
+    tarballUrl.searchParams.set("did", atcuteSession.did);
+    tarballUrl.searchParams.set("cid", blob.data.blob.ref.$link);
+
+    // TODO: fiture out why blob upload is hanging
+    // TODO: Add versions with URL to uploaded blob on PDS for version.dist.tarball
+    versions.unshift({
+      $type: "dev.atpm.package#package",
+      createdAt: new Date().toISOString(),
+      version,
+      blob: blob.data.blob,
+      meta: {
+        ...meta,
+        dist: {
+          ...meta.dist,
+          tarball: tarballUrl.href,
+        },
+      },
+    });
+  }
+
+  const record: DevAtpmPackage.Main = {
+    $type: "dev.atpm.package",
+    createdAt: new Date().toISOString(),
+    type: "npm",
+    tags: body["dist-tags"],
+    versions,
+  };
+
+  const updated = await client.call(ComAtprotoRepoPutRecord, {
+    input: {
+      repo: atcuteSession.did,
+      collection: "dev.atpm.package",
+      rkey: name,
+      record,
+    },
+  });
+
+  if (!updated.ok) return c.json({ error: "failed to update record" }, 500);
+
+  return c.json({ success: true });
 });
 
 app.post("/-/v1/login", async (c) => {
@@ -119,18 +262,22 @@ app.get("/-/cli/:sessionId", async (c) => {
   return c.redirect(new URL("/login?success", c.req.url));
 });
 
-// app.all("*", async (c) => {
-//   console.log(c.req.url);
-//   const url = new URL(c.req.url);
-//   const forwardedUrl = new URL(url.pathname + url.search, "https://registry.npmjs.org");
-//   const response = await fetch(forwardedUrl, {
-//     method: c.req.method,
-//     headers: c.req.raw.headers,
-//     body: c.req.raw.body,
-//   });
-//   const response2 = response.clone();
-//   console.log(await response2.json());
-//   return response;
-// });
+app.all("*", (c) => {
+  return proxyRequest(c, c.req.raw.body);
+});
+
+function proxyRequest(c: Context, body?: BodyInit | null) {
+  const url = new URL(c.req.url);
+  const forwardedUrl = new URL(
+    url.pathname.replace(/^\/registry\//, "/") + url.search,
+    "https://registry.npmjs.org",
+  );
+  console.log("PROXYING", forwardedUrl.href);
+  return fetch(forwardedUrl, {
+    method: c.req.method,
+    headers: c.req.raw.headers,
+    body,
+  });
+}
 
 export default app;

@@ -37,8 +37,6 @@ app.post("/login", async (c) => {
     return c.redirect(redirect.href);
   }
 
-  console.log({ returnTo: parsed.output.returnTo });
-
   try {
     const result = await atcute.oauth.authorize({
       target: {
@@ -67,7 +65,6 @@ app.get("/callback", async (c) => {
   const atcute = c.get("atcute");
   try {
     const result = await atcute.oauth.callback(new URL(c.req.url).searchParams);
-    console.log({ state: result.state });
     const returnTo = v.parse(ReturnToSchema, result.state);
     await setSessionDid(c, result.session.did);
     return c.redirect(new URL(returnTo, c.req.url));
