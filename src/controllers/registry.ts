@@ -16,7 +16,6 @@ import { base64ToBlob } from "@/lib/base64";
 const app = new Hono<Env>();
 
 app.get("/:package", async (c) => {
-  console.log(c.req.url);
   const atcute = c.get("atcute");
   const packageParam = c.req.param("package");
 
@@ -67,6 +66,7 @@ app.get("/:package", async (c) => {
     }
   }
 
+  c.header("Cache-Control", "public, max-age=500");
   return c.json({
     _rev: recordResponse.data.cid || recordResponse.data.uri,
     _id: `${resolved.did}/${packageName}`,
@@ -150,7 +150,6 @@ app.put("/:package", async (c) => {
     ? [...(existingPackage.data.value.versions as DevAtpmPackage.Package[])]
     : [];
 
-  console.log(body._attachments);
   for (const [version, meta] of Object.entries(body.versions)) {
     if (versions.some((v) => v.version === version))
       return c.json({ error: "version already exists" }, 403);
@@ -262,8 +261,8 @@ app.get("/-/cli/:sessionId", async (c) => {
   return c.redirect(new URL("/login?success", c.req.url));
 });
 
-app.all("*", (c) => {
-  return proxyRequest(c, c.req.raw.body);
+app.get("*", (c) => {
+  return proxyRequest(c);
 });
 
 function proxyRequest(c: Context, body?: BodyInit | null) {
@@ -272,7 +271,6 @@ function proxyRequest(c: Context, body?: BodyInit | null) {
     url.pathname.replace(/^\/registry\//, "/") + url.search,
     "https://registry.npmjs.org",
   );
-  console.log("PROXYING", forwardedUrl.href);
   return fetch(forwardedUrl, {
     method: c.req.method,
     headers: c.req.raw.headers,
