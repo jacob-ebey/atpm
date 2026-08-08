@@ -34,7 +34,10 @@ app.use(
     }),
     scope: () => [
       scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" }),
-      scope.repo({ collection: ["dev.atpm.package"], action: ["create", "update", "delete"] }),
+      scope.repo({
+        collection: ["dev.atpm.alpha.package"],
+        action: ["create", "update", "delete"],
+      }),
       scope.blob({ accept: ["application/octet-stream"] }),
     ],
     stores: (c) => createStores(c.env.ATPROTO_STORE),
