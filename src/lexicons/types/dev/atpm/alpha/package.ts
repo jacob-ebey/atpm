@@ -5,7 +5,7 @@ import type {} from "@atcute/lexicons/ambient";
 const _mainSchema = /*#__PURE__*/ v.record(
   /*#__PURE__*/ v.string(),
   /*#__PURE__*/ v.object({
-    $type: /*#__PURE__*/ v.literal("dev.atpm.package"),
+    $type: /*#__PURE__*/ v.literal("dev.atpm.alpha.package"),
     createdAt: /*#__PURE__*/ v.datetimeString(),
     tags: /*#__PURE__*/ v.unknown(),
     /**
@@ -18,7 +18,7 @@ const _mainSchema = /*#__PURE__*/ v.record(
   }),
 );
 const _packageSchema = /*#__PURE__*/ v.object({
-  $type: /*#__PURE__*/ v.optional(/*#__PURE__*/ v.literal("dev.atpm.package#package")),
+  $type: /*#__PURE__*/ v.optional(/*#__PURE__*/ v.literal("dev.atpm.alpha.package#package")),
   blob: /*#__PURE__*/ v.blob(),
   createdAt: /*#__PURE__*/ v.datetimeString(),
   meta: /*#__PURE__*/ v.unknown(),
@@ -39,6 +39,6 @@ export interface Package extends v.InferInput<typeof packageSchema> {}
 
 declare module "@atcute/lexicons/ambient" {
   interface Records {
-    "dev.atpm.package": mainSchema;
+    "dev.atpm.alpha.package": mainSchema;
   }
 }

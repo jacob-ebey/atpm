@@ -10,7 +10,7 @@ import {
   ComAtprotoRepoPutRecord,
   ComAtprotoRepoUploadBlob,
 } from "@atcute/atproto";
-import { DevAtpmPackage } from "@/lexicons";
+import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
 
 const app = new Hono<Env>();
@@ -43,7 +43,7 @@ app.get("/:package", async (c) => {
   const recordResponse = await client.get("com.atproto.repo.getRecord", {
     params: {
       repo: resolved.did,
-      collection: "dev.atpm.package",
+      collection: "dev.atpm.alpha.package",
       rkey: packageName,
     },
   });
@@ -141,7 +141,7 @@ app.put("/:package", async (c) => {
   const existingPackage = await client.call(ComAtprotoRepoGetRecord, {
     params: {
       repo: atcuteSession.did,
-      collection: "dev.atpm.package",
+      collection: "dev.atpm.alpha.package",
       rkey: name,
     },
   });
@@ -173,7 +173,7 @@ app.put("/:package", async (c) => {
     // TODO: fiture out why blob upload is hanging
     // TODO: Add versions with URL to uploaded blob on PDS for version.dist.tarball
     versions.unshift({
-      $type: "dev.atpm.package#package",
+      $type: "dev.atpm.alpha.package#package",
       createdAt: new Date().toISOString(),
       version,
       blob: blob.data.blob,
@@ -188,7 +188,7 @@ app.put("/:package", async (c) => {
   }
 
   const record: DevAtpmPackage.Main = {
-    $type: "dev.atpm.package",
+    $type: "dev.atpm.alpha.package",
     createdAt: new Date().toISOString(),
     type: "npm",
     tags: body["dist-tags"],
@@ -198,7 +198,7 @@ app.put("/:package", async (c) => {
   const updated = await client.call(ComAtprotoRepoPutRecord, {
     input: {
       repo: atcuteSession.did,
-      collection: "dev.atpm.package",
+      collection: "dev.atpm.alpha.package",
       rkey: name,
       record,
     },
