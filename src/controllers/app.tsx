@@ -1,3 +1,5 @@
+import type { Did } from "@atcute/lexicons";
+import type { PackumentVersion } from "@npm/types";
 import { Hono } from "hono";
 import { marked } from "marked";
 import * as v from "valibot";
@@ -6,9 +8,8 @@ import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { ReturnToSchema } from "@/lib/return-to";
+import { timeAgo } from "@/lib/time";
 import { readPackage, searchPackages } from "@/models/packages";
-import type { Did } from "@atcute/lexicons";
-import type { PackumentVersion } from "@npm/types";
 
 const app = new Hono();
 
@@ -476,27 +477,6 @@ app.get("/login", (c) => {
 
 function parseRepository(url: string) {
   return url.replace(/^\w+\+http/, "http").replace(/\.git$/, "");
-}
-
-const THRESHOLDS = [
-  { unit: "year", ms: 365 * 24 * 60 * 60 * 1000 },
-  { unit: "month", ms: 30 * 24 * 60 * 60 * 1000 },
-  { unit: "week", ms: 7 * 24 * 60 * 60 * 1000 },
-  { unit: "day", ms: 24 * 60 * 60 * 1000 },
-  { unit: "hour", ms: 60 * 60 * 1000 },
-  { unit: "minute", ms: 60 * 1000 },
-  { unit: "second", ms: 1000 },
-] as const;
-
-function timeAgo(date: number) {
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  const diffMs = date - Date.now();
-  for (const { unit, ms } of THRESHOLDS) {
-    if (Math.abs(diffMs) >= ms) {
-      return rtf.format(Math.round(diffMs / ms), unit);
-    }
-  }
-  return rtf.format(0, "second"); // "just now"
 }
 
 export default app;
