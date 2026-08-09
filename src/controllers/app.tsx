@@ -17,7 +17,6 @@ app.get("/", async (c) => {
   const atcute = c.get("atcute");
   const recentPackages = await readRecentPackages();
 
-  c.header("Cache-Control", "s-maxage=60");
   return c.render(
     <html lang="en">
       <Head>
