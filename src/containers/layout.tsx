@@ -1,4 +1,4 @@
-import { Suspense, type JSXChild } from "srv-jsx";
+import type { JSXChild } from "srv-jsx";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -26,75 +26,73 @@ export async function Layout({ children }: { children?: JSXChild }) {
             ATPM
           </a>
           <div class="flex-1 flex flex-wrap-reverse items-center justify-end gap-2">
-            <Suspense>
-              <div class="hidden sm:contents">
-                <form class="flex-1 sm:flex-0" action="/search">
-                  <div class="input-group">
-                    <input type="text" placeholder="Search..." name="q" />
-                    <span data-align="start" aria-hidden="true">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
+            <div class="hidden sm:contents">
+              <form class="flex-1 sm:flex-0" action="/search">
+                <div class="input-group">
+                  <input type="text" placeholder="Search..." name="q" />
+                  <span data-align="start" aria-hidden="true">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                      <path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path>
+                      <path d="M21 21l-6 -6"></path>
+                    </svg>
+                  </span>
+                  <span data-align="end" class="hidden sm:inline">
+                    <kbd class="kbd">⌘K</kbd>
+                  </span>
+                </div>
+              </form>
+              {atcute.session ? (
+                <div>
+                  <DropdownMenu id="dropdown-account">
+                    <button
+                      type="button"
+                      id="dropdown-account-trigger"
+                      aria-haspopup="menu"
+                      aria-controls="dropdown-account-menu"
+                      aria-expanded="false"
+                      class="btn max-w-56"
+                      data-variant="outline"
+                    >
+                      <span class="truncate">{handlePromise}</span>
+                    </button>
+                    <div
+                      id="dropdown-account-popover"
+                      data-popover
+                      data-side="bottom"
+                      data-align="end"
+                      aria-hidden="true"
+                      class="min-w-32"
+                    >
+                      <form
+                        role="menu"
+                        id="dropdown-account-menu"
+                        aria-labelledby="dropdown-account-trigger"
+                        method="post"
+                        action="/oauth/logout"
                       >
-                        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                        <path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path>
-                        <path d="M21 21l-6 -6"></path>
-                      </svg>
-                    </span>
-                    <span data-align="end" class="hidden sm:inline">
-                      <kbd class="kbd">⌘K</kbd>
-                    </span>
-                  </div>
-                </form>
-                {atcute.session ? (
-                  <div>
-                    <DropdownMenu id="dropdown-account">
-                      <button
-                        type="button"
-                        id="dropdown-account-trigger"
-                        aria-haspopup="menu"
-                        aria-controls="dropdown-account-menu"
-                        aria-expanded="false"
-                        class="btn max-w-56"
-                        data-variant="outline"
-                      >
-                        <span class="truncate">{handlePromise}</span>
-                      </button>
-                      <div
-                        id="dropdown-account-popover"
-                        data-popover
-                        data-side="bottom"
-                        data-align="end"
-                        aria-hidden="true"
-                        class="min-w-32"
-                      >
-                        <form
-                          role="menu"
-                          id="dropdown-account-menu"
-                          aria-labelledby="dropdown-account-trigger"
-                          method="post"
-                          action="/oauth/logout"
-                        >
-                          <button type="submit" role="menuitem">
-                            Logout
-                          </button>
-                        </form>
-                      </div>
-                    </DropdownMenu>
-                  </div>
-                ) : (
-                  <a href="/login" class="btn" data-variant="outline">
-                    Login
-                  </a>
-                )}
-              </div>
-            </Suspense>
+                        <button type="submit" role="menuitem">
+                          Logout
+                        </button>
+                      </form>
+                    </div>
+                  </DropdownMenu>
+                </div>
+              ) : (
+                <a href="/login" class="btn" data-variant="outline">
+                  Login
+                </a>
+              )}
+            </div>
             <div class="hidden sm:contents">
               <ThemeToggle />
             </div>

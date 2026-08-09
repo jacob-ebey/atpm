@@ -44,9 +44,6 @@ const createRenderer =
       prerender: options?.prerender,
     });
 
-    return new Response(body, {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-      },
-    });
+    c.header("Content-Type", "text/html; charset=utf-8");
+    return c.body(body);
   };

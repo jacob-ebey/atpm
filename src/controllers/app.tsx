@@ -9,11 +9,14 @@ import { Layout } from "@/containers/layout";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { ReturnToSchema } from "@/lib/return-to";
 import { timeAgo } from "@/lib/time";
-import { readPackage, searchPackages } from "@/models/packages";
+import { readPackage, readRecentPackages, searchPackages } from "@/models/packages";
 
 const app = new Hono();
 
 app.get("/", async (c) => {
+  const atcute = c.get("atcute");
+  const recentPackages = await readRecentPackages();
+
   c.header("Cache-Control", "s-maxage=60");
   return c.render(
     <html lang="en">
@@ -78,6 +81,37 @@ app.get("/", async (c) => {
                 not published to the AT Protocol.
               </p>
             </section>
+            <section class="c-x c-y">
+              <h2 class="font-serif text-2xl leading-tight tracking-tight text-balance lg:text-3xl mb-4">
+                Recent Packages
+              </h2>
+              {recentPackages.map(async (pkg) => {
+                const actor = await atcute.actorResolver
+                  .resolve(pkg.did as Did)
+                  .catch(() => undefined);
+                if (!actor) return null;
+
+                const tags = pkg.tags as Record<string, string>;
+                const latestVersion = tags?.["latest"] || "unknown";
+
+                return (
+                  <a href={`/package/${actor.did}/${pkg.rkey}`} class="item block">
+                    <section>
+                      <h3>
+                        @{actor.handle}/{pkg.rkey}
+                      </h3>
+                      <p class="flex gap-3">
+                        <span>v{latestVersion}</span>
+                        <span>{timeAgo(new Date(pkg.indexedAt).getTime())}</span>
+                      </p>
+                      <p class="truncate">
+                        {pkg.did}/dev.atpm.alpha.package/{pkg.rkey}
+                      </p>
+                    </section>
+                  </a>
+                );
+              })}
+            </section>
           </main>
         </Layout>
       </Body>
@@ -91,14 +125,8 @@ app.get("/search", async (c) => {
 
   const query = url.searchParams.get("q");
   const packages = query ? await searchPackages(query) : null;
-  const timeZone = (c.req.raw.cf?.timezone as string) || "America/Los_Angeles";
-  const formatedTime = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date());
 
+  if (!packages?.length) c.status(404);
   return c.render(
     <html lang="en">
       <Head>
@@ -136,7 +164,7 @@ app.get("/search", async (c) => {
                         </h3>
                         <p class="flex gap-3">
                           <span>v{latestVersion}</span>
-                          <span>{formatedTime}</span>
+                          <span>{timeAgo(new Date(pkg.indexedAt).getTime())}</span>
                         </p>
                         <p class="truncate">
                           {pkg.did}/dev.atpm.alpha.package/{pkg.rkey}
@@ -170,6 +198,7 @@ app.get("/package/:did/:rkey", async (c) => {
   const version = versions?.find((v) => v.version === selectedVersion);
 
   if (!actor || !pkg || !versions || !version) {
+    c.status(404);
     return c.render(
       <html lang="en">
         <Head>

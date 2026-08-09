@@ -1,7 +1,7 @@
 import { ComAtprotoRepoGetRecord } from "@atcute/atproto";
 import { Client, simpleFetchHandler } from "@atcute/client";
 import { is, type Did } from "@atcute/lexicons";
-import { and, eq, like, max } from "drizzle-orm";
+import { and, desc, eq, like, max } from "drizzle-orm";
 import { getContext } from "hono/context-storage";
 import * as v from "valibot";
 
@@ -27,6 +27,22 @@ export async function readPackage(did: string, rkey: string) {
     .limit(1)
     .catch();
   return result as typeof result | undefined;
+}
+
+export async function readRecentPackages() {
+  const c = getContext();
+  const db = c.get("db");
+  return await db
+    .select({
+      createdAt: s.pkg.createdAt,
+      indexedAt: s.pkg.indexedAt,
+      did: s.pkg.did,
+      rkey: s.pkg.rkey,
+      tags: s.pkg.tags,
+    })
+    .from(s.pkg)
+    .orderBy(desc(s.pkg.indexedAt))
+    .limit(10);
 }
 
 export async function searchPackages(query: string) {
