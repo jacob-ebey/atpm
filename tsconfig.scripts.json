@@ -5,13 +5,10 @@
     "module": "NodeNext",
     "lib": ["ES2023"],
     "types": ["node"],
-    "paths": {
-      "@/*": ["./src/*"]
-    },
     "skipLibCheck": true,
     "strict": true,
 
-    /* Bundler mode */
+    /* Node mode */
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -25,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["scripts", "vite.config.ts"]
+  "include": ["scripts", "src/lexicons", "vite.config.ts"]
 }

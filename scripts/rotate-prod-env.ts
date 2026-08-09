@@ -7,6 +7,7 @@ const jwk = await generateClientAssertionKey("main", "ES256");
 const jwkJson = JSON.stringify(jwk);
 
 const sessionSecret = crypto.randomUUID() + "-" + crypto.randomUUID();
+const indexerSecret = crypto.randomUUID() + "-" + crypto.randomUUID();
 
 console.log(
   execSync(`vp exec wrangler secret put PRIVATE_KEY_JWK`, {
@@ -21,3 +22,13 @@ console.log(
     input: sessionSecret,
   }),
 );
+
+console.log(
+  execSync(`vp exec wrangler secret put INDEXER_SECRET`, {
+    encoding: "utf8",
+    input: indexerSecret,
+  }),
+);
+
+console.log("The following information will not be shown again:");
+console.log(`  INDEXER_SECRET='${indexerSecret}'`);

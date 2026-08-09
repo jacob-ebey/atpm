@@ -13,15 +13,4 @@ export default defineLexiconConfig({
     imports: ["@atcute/atproto"],
     clean: true,
   },
-  pull: {
-    outdir: "lexicons/",
-    clean: true,
-    sources: [
-      {
-        type: "atproto",
-        mode: "authority",
-        authority: "statusphere.xyz",
-      },
-    ],
-  },
 });

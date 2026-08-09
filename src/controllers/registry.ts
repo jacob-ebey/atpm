@@ -1,9 +1,9 @@
+import { Client, simpleFetchHandler } from "@atcute/client";
 import { type ActorIdentifier, type Did } from "@atcute/lexicons";
 import type * as npm from "@npm/types";
 import { Context, Hono } from "hono";
 import validatePackageName from "validate-npm-package-name";
 
-import { Client, simpleFetchHandler } from "@atcute/client";
 import { sign, validate } from "@/lib/sign";
 import {
   ComAtprotoRepoGetRecord,
@@ -12,6 +12,7 @@ import {
 } from "@atcute/atproto";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
+import { getCursor, indexEvent } from "@/models/packages";
 
 const app = new Hono<Env>();
 
@@ -259,6 +260,15 @@ app.get("/-/cli/:sessionId", async (c) => {
     );
   }
   return c.redirect(new URL("/login?success", c.req.url));
+});
+
+app.get("/-/index", async (c) => {
+  return c.json(await getCursor());
+});
+
+app.post("/-/index", async (c) => {
+  const result = await indexEvent(await c.req.json());
+  return c.json(result, 500);
 });
 
 app.get("*", (c) => {

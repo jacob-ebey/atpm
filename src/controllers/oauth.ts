@@ -3,18 +3,9 @@ import { Hono } from "hono";
 import { clearSessionDid, setSessionDid } from "hono-atcute";
 import * as v from "valibot";
 
-const app = new Hono<Env>();
+import { ReturnToSchema } from "@/lib/return-to";
 
-const ReturnToSchema = v.fallback(
-  v.custom<string>((v) => {
-    if (typeof v === "string" && v.startsWith("/") && v.at(1) !== "/") {
-      const url = new URL(v, "https://validation.com/");
-      return url.pathname + url.search === v;
-    }
-    return false;
-  }),
-  "/",
-);
+const app = new Hono<Env>();
 
 const LoginSchema = v.object({
   returnTo: ReturnToSchema,

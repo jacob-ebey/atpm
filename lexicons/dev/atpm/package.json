@@ -9,17 +9,12 @@
         "required": [
           "createdAt",
           "tags",
-          "type",
           "versions"
         ],
         "properties": {
           "createdAt": {
             "type": "string",
             "format": "datetime"
-          },
-          "type": {
-            "type": "string",
-            "minLength": 1
           },
           "tags": {
             "type": "unknown"

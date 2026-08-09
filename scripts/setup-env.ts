@@ -40,7 +40,9 @@ const envLocal = await readFile(envLocalPath, "utf8");
 // generateClientAssertionKey returns a JWK directly
 const jwk = await generateClientAssertionKey("main", "ES256");
 const jwkJson = JSON.stringify(jwk);
-let updated = upsertEnvVar(envLocal, "PRIVATE_KEY_JWK", `'${jwkJson}'`);
+let updated = upsertEnvVar(envLocal, "INDEXER_BASE_URL", `'http://127.0.0.1:5173/'`);
+updated = upsertEnvVar(updated, "INDEXER_SECRET", `'${crypto.randomUUID()}'`);
+updated = upsertEnvVar(updated, "PRIVATE_KEY_JWK", `'${jwkJson}'`);
 updated = upsertEnvVar(updated, "SESSION_SECRET", `'${crypto.randomUUID()}'`);
 
 if (updated !== envLocal) {

@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import * as v from "valibot";
 
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
+import { ReturnToSchema } from "@/lib/return-to";
 
 const app = new Hono();
 
@@ -21,6 +23,12 @@ app.get("/", async (c) => {
               </h1>
               <p class="max-w-prose text-lg text-muted-foreground mb-6">
                 Package management for the decentralized web built on the AT Protocol.
+              </p>
+              <p class="max-w-prose text-muted-foreground mb-6">
+                AT Package Manager works by publishing each package as an AT Protocol record with
+                version tarballs in the users PDS. The registry resolves handles to DIDs, serves
+                packages over an npm-compatible API, and falls back to the npm registry for anything
+                not published to the AT Protocol.
               </p>
               <div
                 class="item flex w-full max-w-fit py-0 pr-1 text-nowrap flex-nowrap justify-between"
@@ -71,9 +79,20 @@ app.get("/", async (c) => {
 });
 
 app.get("/login", (c) => {
+  const atcute = c.get("atcute");
   const url = new URL(c.req.url);
   const returnTo = decodeURIComponent(url.searchParams.get("returnTo") || "");
   const success = url.searchParams.has("success");
+
+  const isCliLogin = returnTo.startsWith("/registry/-/cli/");
+  if (
+    !isCliLogin &&
+    atcute.session &&
+    !url.searchParams.has("error") &&
+    !url.searchParams.has("success")
+  ) {
+    return c.redirect(v.parse(ReturnToSchema, returnTo));
+  }
 
   return c.render(
     <html lang="en">
@@ -93,34 +112,51 @@ app.get("/login", (c) => {
                 </section>
               </div>
             ) : (
-              <div class="card max-w-sm mx-auto">
-                <header>
-                  <h2>Login</h2>
-                  <p>Log in with your Atmosphere account.</p>
-                </header>
-                <section>
-                  <form id="login-form" class="grid gap-4" method="post" action="/oauth/login">
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <div class="grid gap-3">
-                      <label class="label sr-only" for="login-dialog-username">
-                        Handle
-                      </label>
-                      <input
-                        autofocus
-                        name="handle"
-                        class="input"
-                        type="text"
-                        placeholder="atmosphere.handle"
-                        id="login-dialog-username"
-                      />
-                    </div>
-                  </form>
-                </section>
-                <footer class="flex-col gap-2">
-                  <button type="submit" form="login-form" class="btn w-full">
-                    Authorize
-                  </button>
-                </footer>
+              <div class="grid gap-4">
+                {isCliLogin && atcute.session ? (
+                  <div class="card max-w-sm w-full mx-auto">
+                    <header>
+                      <h2>Continue</h2>
+                      <p>
+                        Login as <code class="break-all">{atcute.session.did}</code>
+                      </p>
+                    </header>
+                    <footer>
+                      <a href={returnTo} class="btn w-full">
+                        Continue
+                      </a>
+                    </footer>
+                  </div>
+                ) : null}
+                <div class="card max-w-sm w-full mx-auto">
+                  <header>
+                    <h2>Login</h2>
+                    <p>Log in with your Atmosphere account.</p>
+                  </header>
+                  <section>
+                    <form id="login-form" class="grid gap-4" method="post" action="/oauth/login">
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <div class="grid gap-3">
+                        <label class="label sr-only" for="login-dialog-username">
+                          Handle
+                        </label>
+                        <input
+                          autofocus
+                          name="handle"
+                          class="input"
+                          type="text"
+                          placeholder="atmosphere.handle"
+                          id="login-dialog-username"
+                        />
+                      </div>
+                    </form>
+                  </section>
+                  <footer class="flex-col gap-2">
+                    <button type="submit" form="login-form" class="btn w-full">
+                      Authorize
+                    </button>
+                  </footer>
+                </div>
               </div>
             )}
           </main>

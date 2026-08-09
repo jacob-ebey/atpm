@@ -8,6 +8,7 @@ import { createStores } from "hono-atcute/cloudflare";
 import appController from "@/controllers/app";
 import registry from "@/controllers/registry";
 import oauth from "@/controllers/oauth";
+import { database } from "@/db/middleware";
 import { htmxRedirects } from "@/lib/htmx";
 import { srvJsxRenderer } from "@/lib/renderer";
 
@@ -23,6 +24,11 @@ declare global {
 const app = new Hono<Env>();
 
 app.use(
+  async (c, next) => {
+    c.header("Cache-Control", "no-cache");
+    c.header("Vary", "cookie");
+    await next();
+  },
   contextStorage(),
   csrf(),
   atcute({
@@ -42,6 +48,7 @@ app.use(
     ],
     stores: (c) => createStores(c.env.ATPROTO_STORE),
   }),
+  database(),
   srvJsxRenderer(),
   htmxRedirects(),
 );

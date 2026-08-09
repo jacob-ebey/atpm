@@ -4,6 +4,18 @@
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
+  "cache": {
+    "enabled": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "atpm",
+      "database_id": "75ec05a0-0142-4b35-b2ab-484fad323aa7",
+      "migrations_dir": "drizzle",
+      "migrations_pattern": "drizzle/*/*.sql",
+    },
+  ],
   "durable_objects": {
     "bindings": [
       {
