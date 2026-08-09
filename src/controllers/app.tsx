@@ -128,7 +128,7 @@ app.get("/search", async (c) => {
 
   if (!packages?.length) c.status(404);
 
-  c.header("Cache-Control", "s-maxage=30; stale-while-revalidate=30");
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
