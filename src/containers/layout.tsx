@@ -29,7 +29,21 @@ export async function Layout({ children }: { children?: JSXChild }) {
             <div class="hidden sm:contents">
               <form class="flex-1 sm:flex-0" action="/search">
                 <div class="input-group">
-                  <input type="text" placeholder="Search..." name="q" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    name="q"
+                    ref={(input) => {
+                      "use client";
+                      document.addEventListener("keydown", (event) => {
+                        if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+                          event?.preventDefault();
+                          input.focus();
+                          input.select();
+                        }
+                      });
+                    }}
+                  />
                   <span data-align="start" aria-hidden="true">
                     <svg
                       width="24"
