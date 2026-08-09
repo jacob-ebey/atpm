@@ -4,6 +4,7 @@ import * as v from "valibot";
 
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
+import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { ReturnToSchema } from "@/lib/return-to";
 import { readPackage, searchPackages } from "@/models/packages";
 import type { Did } from "@atcute/lexicons";
@@ -89,9 +90,9 @@ app.get("/search", async (c) => {
 
   const query = url.searchParams.get("q");
   const packages = query ? await searchPackages(query) : null;
-  const timezone = (c.req.raw.cf?.timezone as string) || "America/Los_Angeles";
+  const timeZone = (c.req.raw.cf?.timezone as string) || "America/Los_Angeles";
   const formatedTime = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
+    timeZone,
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -164,9 +165,10 @@ app.get("/package/:did/:rkey", async (c) => {
 
   const selectedVersion = versionParam || (pkg?.tags as Record<string, string>)?.latest;
 
-  const version = (pkg?.versions as any[])?.find((v) => v.version === selectedVersion);
+  const versions = pkg?.versions as DevAtpmPackage.Package[] | undefined;
+  const version = versions?.find((v) => v.version === selectedVersion);
 
-  if (!actor || !pkg || !version) {
+  if (!actor || !pkg || !versions || !version) {
     return c.render(
       <html lang="en">
         <Head>
@@ -191,40 +193,48 @@ app.get("/package/:did/:rkey", async (c) => {
     );
   }
 
-  let largestHeader = 6;
-  await marked
-    .use({
-      renderer: {
-        heading({ tokens, depth }) {
-          if (depth < largestHeader) largestHeader = depth;
-          return `<h${depth}>${this.parser.parseInline(tokens)}</h${depth}>\n`;
-        },
-      },
-    })
-    .parse(version.meta.readme, {});
-
   const meta = version.meta as PackumentVersion;
 
+  let largestHeader = 6;
+  if (meta.readme) {
+    await marked
+      .use({
+        renderer: {
+          heading({ tokens, depth }) {
+            if (depth < largestHeader) largestHeader = depth;
+            return `<h${depth}>${this.parser.parseInline(tokens)}</h${depth}>\n`;
+          },
+        },
+      })
+      .parse(meta.readme, {});
+  }
+
   const hasNavMeta = Boolean(meta.homepage || meta.repository || meta.bugs);
+
+  let size = "unknown";
+  if ("size" in version.blob) {
+    // convert to kB
+    size = `${(version.blob.size / 1024).toFixed(2)} kB`;
+  }
 
   return c.render(
     <html lang="en">
       <Head>
         <title>{`${pkg.rkey} | ATPM`}</title>
-        <meta name="description" content={version.description || "No package description."} />
+        <meta name="description" content={meta.description || "No package description."} />
       </Head>
       <Body>
         <Layout>
           <main>
-            <section class="c-x c-y-s">
-              <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+            <div class="c-x c-y-s">
+              <h1 class="font-serif text-3xl leading-tight tracking-tight lg:text-4xl mb-4 break-all">
                 @{actor.handle}/{pkg.rkey}
               </h1>
               {meta?.description ? (
-                <p class="max-w-prose text-lg text-muted-foreground">{meta.description}</p>
+                <p class="max-w-prose text-lg text-muted-foreground mb-6">{meta.description}</p>
               ) : null}
               {hasNavMeta ? (
-                <nav class="breadcrumb mt-6" aria-label="Breadcrumb">
+                <nav class="breadcrumb" aria-label="External Links">
                   <ol>
                     {meta.repository ? (
                       <li>
@@ -293,20 +303,82 @@ app.get("/package/:did/:rkey", async (c) => {
                 </nav>
               ) : null}
               <hr class="my-8" />
-              <div
-                class="typeset"
-                innerHTML={await marked
-                  .use({
-                    renderer: {
-                      heading({ tokens, depth }) {
-                        const adjustedDepth = Math.min(depth + (2 - largestHeader), 6);
-                        return `<h${adjustedDepth}>${this.parser.parseInline(tokens)}</h${adjustedDepth}>\n`;
-                      },
-                    },
-                  })
-                  .parse(version.meta.readme, {})}
-              />
-            </section>
+              <section class="grid grid-cols-2 gap-8 sm:grid-cols-4">
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">Version</h4>
+                  <div class="text-sm">{meta.version}</div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">License</h4>
+                  <div class="text-sm">{meta.license || "unknown"}</div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">Install Size</h4>
+                  <div class="text-sm">{size}</div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">Published</h4>
+                  <div class="text-sm">{timeAgo(new Date(version.createdAt).getTime())}</div>
+                </div>
+              </section>
+              <hr class="my-8" />
+              <div class="md:grid md:grid-cols-[3fr_1fr] md:gap-8 md:[column-rule:1px_solid_var(--color-border)]">
+                <div>
+                  <h2 class="mb-4">README</h2>
+                  <article
+                    class="typeset"
+                    innerHTML={await marked
+                      .use({
+                        renderer: {
+                          heading({ tokens, depth }) {
+                            const adjustedDepth = Math.min(depth + (2 - largestHeader), 6);
+                            return `<h${adjustedDepth}>${this.parser.parseInline(tokens)}</h${adjustedDepth}>\n`;
+                          },
+                        },
+                      })
+                      .parse(meta.readme || "", {})}
+                  />
+                </div>
+
+                <hr class="my-8 md:hidden" />
+
+                <aside class="space-y-6">
+                  <div class="space-y-2">
+                    <h4 class="text-sm leading-none font-semibold">Dependencies</h4>
+                    {Object.entries(meta.dependencies ?? {}).length > 0 ? (
+                      Object.entries(meta.dependencies ?? {}).map(([name, version]) => (
+                        <div class="text-sm">
+                          {name}@{version}
+                        </div>
+                      ))
+                    ) : (
+                      <div class="text-sm">none</div>
+                    )}
+                  </div>
+                  <div class="space-y-2">
+                    <h4 class="text-sm leading-none font-semibold">Peer Dependencies</h4>
+                    {Object.entries(meta.peerDependencies ?? {}).length > 0 ? (
+                      Object.entries(meta.peerDependencies ?? {}).map(([name, version]) => (
+                        <div class="text-sm">
+                          {name}@{version}{" "}
+                          {meta.peerDependenciesMeta?.[name]?.optional ? "(optional)" : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div class="text-sm">none</div>
+                    )}
+                  </div>
+                  <div class="space-y-2">
+                    <h4 class="text-sm leading-none font-semibold">Versions</h4>
+                    {versions.map((version) => (
+                      <a href={`?version=${version.version}`} class="block text-sm">
+                        {version.version} - {timeAgo(new Date(version.createdAt).getTime())}
+                      </a>
+                    ))}
+                  </div>
+                </aside>
+              </div>
+            </div>
           </main>
         </Layout>
       </Body>
@@ -404,6 +476,27 @@ app.get("/login", (c) => {
 
 function parseRepository(url: string) {
   return url.replace(/^\w+\+http/, "http").replace(/\.git$/, "");
+}
+
+const THRESHOLDS = [
+  { unit: "year", ms: 365 * 24 * 60 * 60 * 1000 },
+  { unit: "month", ms: 30 * 24 * 60 * 60 * 1000 },
+  { unit: "week", ms: 7 * 24 * 60 * 60 * 1000 },
+  { unit: "day", ms: 24 * 60 * 60 * 1000 },
+  { unit: "hour", ms: 60 * 60 * 1000 },
+  { unit: "minute", ms: 60 * 1000 },
+  { unit: "second", ms: 1000 },
+] as const;
+
+function timeAgo(date: number) {
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  const diffMs = date - Date.now();
+  for (const { unit, ms } of THRESHOLDS) {
+    if (Math.abs(diffMs) >= ms) {
+      return rtf.format(Math.round(diffMs / ms), unit);
+    }
+  }
+  return rtf.format(0, "second"); // "just now"
 }
 
 export default app;
