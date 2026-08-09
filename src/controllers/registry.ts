@@ -12,7 +12,7 @@ import {
 } from "@atcute/atproto";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
-import { getCursor, indexEvent } from "@/models/packages";
+import { readCursor, indexEvent } from "@/models/packages";
 
 const app = new Hono<Env>();
 
@@ -263,7 +263,7 @@ app.get("/-/cli/:sessionId", async (c) => {
 });
 
 app.get("/-/index", async (c) => {
-  return c.json(await getCursor());
+  return c.json(await readCursor());
 });
 
 app.post("/-/index", async (c) => {

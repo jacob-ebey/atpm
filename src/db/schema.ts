@@ -1,7 +1,7 @@
 import { sql, type Simplify } from "drizzle-orm";
 import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
-export const status = sqliteTable(
+export const pkg = sqliteTable(
   "package",
   {
     did: text("author_did").notNull(),
@@ -20,4 +20,4 @@ export const status = sqliteTable(
   ],
 );
 
-export type StatusRow = Simplify<typeof status.$inferSelect>;
+export type StatusRow = Simplify<typeof pkg.$inferSelect>;

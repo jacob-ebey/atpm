@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "basecoat-css/vega";
 
+@import "./typeset.css";
+
 @layer base {
   .c-x {
     @apply px-4 md:px-8 lg:px-24 max-w-7xl mx-auto;
@@ -8,6 +10,10 @@
 
   .c-y {
     @apply py-16 lg:py-24;
+  }
+
+  .c-y-s {
+    @apply py-8;
   }
 
   @keyframes marquee {

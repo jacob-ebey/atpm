@@ -271,6 +271,9 @@ catalogs:
     invokers-polyfill:
       specifier: 1.0.3
       version: 1.0.3
+    marked:
+      specifier: 18.0.9
+      version: 18.0.9
     package-json-validator:
       specifier: 1.6.0
       version: 1.6.0
@@ -348,6 +351,9 @@ importers:
       invokers-polyfill:
         specifier: 'catalog:'
         version: 1.0.3
+      marked:
+        specifier: 'catalog:'
+        version: 18.0.9
       package-json-validator:
         specifier: 'catalog:'
         version: 1.6.0
@@ -2407,6 +2413,11 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
+  marked@18.0.9:
+    resolution: {integrity: sha512-/Sa4qiiHZxf0/FQdBBowr9q4r10krCwMvpK48FUBdXdUXScDxiQGR9zCPrFgRVR5LU3iySOiIjy09ZQvADir1w==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
   miniflare@5.20260801.0-alpha:
     resolution: {integrity: sha512-AfMrnQbJg81ESsGkGhOkHBtwTqCG+mosR+3GE+qDrhF1I/ieIvgg3ICxNyBvgHBZ3iapy6cysBQHNPykkzrfgw==}
     engines: {node: '>=22.0.0'}
@@ -4121,6 +4132,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  marked@18.0.9: {}
 
   miniflare@5.20260801.0-alpha:
     dependencies:

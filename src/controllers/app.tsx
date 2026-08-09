@@ -1,13 +1,18 @@
 import { Hono } from "hono";
+import { marked } from "marked";
 import * as v from "valibot";
 
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
 import { ReturnToSchema } from "@/lib/return-to";
+import { readPackage, searchPackages } from "@/models/packages";
+import type { Did } from "@atcute/lexicons";
+import type { PackumentVersion } from "@npm/types";
 
 const app = new Hono();
 
 app.get("/", async (c) => {
+  c.header("Cache-Control", "s-maxage=60");
   return c.render(
     <html lang="en">
       <Head>
@@ -24,14 +29,8 @@ app.get("/", async (c) => {
               <p class="max-w-prose text-lg text-muted-foreground mb-6">
                 Package management for the decentralized web built on the AT Protocol.
               </p>
-              <p class="max-w-prose text-muted-foreground mb-6">
-                AT Package Manager works by publishing each package as an AT Protocol record with
-                version tarballs in the users PDS. The registry resolves handles to DIDs, serves
-                packages over an npm-compatible API, and falls back to the npm registry for anything
-                not published to the AT Protocol.
-              </p>
               <div
-                class="item flex w-full max-w-fit py-0 pr-1 text-nowrap flex-nowrap justify-between"
+                class="item flex w-full max-w-fit py-0 pr-1 text-nowrap flex-nowrap justify-between mb-6"
                 data-variant="outline"
                 data-size="sm"
               >
@@ -70,6 +69,243 @@ app.get("/", async (c) => {
                   </svg>
                 </button>
               </div>
+              <p class="max-w-prose text-muted-foreground">
+                AT Package Manager works by publishing each package as an AT Protocol record with
+                version tarballs in the users PDS. The registry resolves handles to DIDs, serves
+                packages over an npm-compatible API, and falls back to the npm registry for anything
+                not published to the AT Protocol.
+              </p>
+            </section>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+app.get("/search", async (c) => {
+  const atcute = c.get("atcute");
+  const url = new URL(c.req.url);
+
+  const query = url.searchParams.get("q");
+  const packages = query ? await searchPackages(query) : null;
+  const timezone = (c.req.raw.cf?.timezone as string) || "America/Los_Angeles";
+  const formatedTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date());
+
+  return c.render(
+    <html lang="en">
+      <Head>
+        <title>{query ? `${query} | ATPM Search` : "ATPM Search"}</title>
+        <meta name="description" content="Search for AT Protocol packages." />
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="c-x c-y-s">
+              {!packages?.length ? (
+                <>
+                  <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                    No results found for "{query}"
+                  </h1>
+                  <p class="max-w-prose text-lg text-muted-foreground mb-6">
+                    Try searching for a different package.
+                  </p>
+                </>
+              ) : (
+                packages.map(async (pkg) => {
+                  const actor = await atcute.actorResolver
+                    .resolve(pkg.did as Did)
+                    .catch(() => undefined);
+                  if (!actor) return null;
+
+                  const tags = pkg.tags as Record<string, string>;
+                  const latestVersion = tags?.["latest"] || "unknown";
+
+                  return (
+                    <a href={`/package/${actor.did}/${pkg.rkey}`} class="item block">
+                      <section>
+                        <h3>
+                          @{actor.handle}/{pkg.rkey}
+                        </h3>
+                        <p class="flex gap-3">
+                          <span>v{latestVersion}</span>
+                          <span>{formatedTime}</span>
+                        </p>
+                        <p class="truncate">
+                          {pkg.did}/dev.atpm.alpha.package/{pkg.rkey}
+                        </p>
+                      </section>
+                    </a>
+                  );
+                })
+              )}
+            </section>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+app.get("/package/:did/:rkey", async (c) => {
+  const atcute = c.get("atcute");
+  const url = new URL(c.req.url);
+  const versionParam = url.searchParams.get("version");
+
+  const [actor, pkg] = await Promise.all([
+    atcute.actorResolver.resolve(c.req.param("did") as Did).catch(() => undefined),
+    readPackage(c.req.param("did"), c.req.param("rkey")),
+  ] as const);
+
+  const selectedVersion = versionParam || (pkg?.tags as Record<string, string>)?.latest;
+
+  const version = (pkg?.versions as any[])?.find((v) => v.version === selectedVersion);
+
+  if (!actor || !pkg || !version) {
+    return c.render(
+      <html lang="en">
+        <Head>
+          <title>Not Found | ATPM Search</title>
+          <meta name="description" content="The package you are looking for could not be found." />
+        </Head>
+        <Body>
+          <Layout>
+            <main>
+              <section class="c-x c-y-s">
+                <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                  Package not found
+                </h1>
+                <p class="max-w-prose text-lg text-muted-foreground mb-6">
+                  The package you are looking for could not be found.
+                </p>
+              </section>
+            </main>
+          </Layout>
+        </Body>
+      </html>,
+    );
+  }
+
+  let largestHeader = 6;
+  await marked
+    .use({
+      renderer: {
+        heading({ tokens, depth }) {
+          if (depth < largestHeader) largestHeader = depth;
+          return `<h${depth}>${this.parser.parseInline(tokens)}</h${depth}>\n`;
+        },
+      },
+    })
+    .parse(version.meta.readme, {});
+
+  const meta = version.meta as PackumentVersion;
+
+  const hasNavMeta = Boolean(meta.homepage || meta.repository || meta.bugs);
+
+  return c.render(
+    <html lang="en">
+      <Head>
+        <title>{`${pkg.rkey} | ATPM`}</title>
+        <meta name="description" content={version.description || "No package description."} />
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="c-x c-y-s">
+              <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                @{actor.handle}/{pkg.rkey}
+              </h1>
+              {meta?.description ? (
+                <p class="max-w-prose text-lg text-muted-foreground">{meta.description}</p>
+              ) : null}
+              {hasNavMeta ? (
+                <nav class="breadcrumb mt-6" aria-label="Breadcrumb">
+                  <ol>
+                    {meta.repository ? (
+                      <li>
+                        <a
+                          href={parseRepository(meta.repository.url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          source
+                        </a>
+                      </li>
+                    ) : null}
+                    {meta.homepage ? (
+                      <>
+                        {meta.homepage || meta.repository ? (
+                          <li aria-hidden="true">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                              <path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path>
+                            </svg>
+                          </li>
+                        ) : null}
+                        <li>
+                          <a href={meta.homepage} target="_blank" rel="noopener noreferrer">
+                            homepage
+                          </a>
+                        </li>
+                      </>
+                    ) : null}
+                    {meta.bugs?.url || meta.bugs?.email ? (
+                      <>
+                        {meta.homepage || meta.repository ? (
+                          <li aria-hidden="true">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+                              <path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path>
+                            </svg>
+                          </li>
+                        ) : null}
+                        <li>
+                          <a
+                            href={meta.bugs.url || `mailto:${meta.bugs.email}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            issues
+                          </a>
+                        </li>
+                      </>
+                    ) : null}
+                  </ol>
+                </nav>
+              ) : null}
+              <hr class="my-8" />
+              <div
+                class="typeset"
+                innerHTML={await marked
+                  .use({
+                    renderer: {
+                      heading({ tokens, depth }) {
+                        const adjustedDepth = Math.min(depth + (2 - largestHeader), 6);
+                        return `<h${adjustedDepth}>${this.parser.parseInline(tokens)}</h${adjustedDepth}>\n`;
+                      },
+                    },
+                  })
+                  .parse(version.meta.readme, {})}
+              />
             </section>
           </main>
         </Layout>
@@ -101,7 +337,7 @@ app.get("/login", (c) => {
       </Head>
       <Body>
         <Layout>
-          <main class="c-x py-16">
+          <main class="c-x c-y-s">
             {success ? (
               <div class="card max-w-sm mx-auto">
                 <header>
@@ -165,5 +401,9 @@ app.get("/login", (c) => {
     </html>,
   );
 });
+
+function parseRepository(url: string) {
+  return url.replace(/^\w+\+http/, "http").replace(/\.git$/, "");
+}
 
 export default app;
