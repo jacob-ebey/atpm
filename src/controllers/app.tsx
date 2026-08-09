@@ -17,6 +17,7 @@ app.get("/", async (c) => {
   const atcute = c.get("atcute");
   const recentPackages = await readRecentPackages();
 
+  c.header("Cache-Control", "s-maxage=1; stale-while-revalidate=5");
   return c.render(
     <html lang="en">
       <Head>
@@ -126,6 +127,8 @@ app.get("/search", async (c) => {
   const packages = query ? await searchPackages(query) : null;
 
   if (!packages?.length) c.status(404);
+
+  c.header("Cache-Control", "s-maxage=1; stale-while-revalidate=5");
   return c.render(
     <html lang="en">
       <Head>
@@ -246,6 +249,7 @@ app.get("/package/:did/:rkey", async (c) => {
     size = `${(version.blob.size / 1024).toFixed(2)} kB`;
   }
 
+  c.header("Cache-Control", "s-maxage=1; stale-while-revalidate=5");
   return c.render(
     <html lang="en">
       <Head>
