@@ -66,7 +66,6 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
   const [scope, name] = packageParam.split("/");
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
   if (scope.slice(1) !== actor.handle) {
-    console.log("a");
     return c.json({ error: "scope does not match actor handle" }, 403);
   }
 
@@ -98,7 +97,6 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
       existingPackage.ok &&
       (existingPackage.data.value as { versions: Record<string, unknown> }).versions[version]
     ) {
-      console.log("b");
       return c.json({ error: "version already exists" }, 403);
     }
 
@@ -196,7 +194,6 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
   const [scope, name] = pkg.name.split("/");
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
   if (scope.slice(1) !== actor.handle) {
-    console.log("a");
     return c.json({ error: "scope does not match actor handle" }, 403);
   }
 
@@ -212,7 +209,6 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
     ? [...(existingPackage.data.value.versions as DevAtpmPackage.Package[])]
     : [];
 
-  console.log({ version: pkg.version, versions });
   if (versions.some((version) => version.version === pkg.version)) {
     return c.json({ error: "version already exists" }, 403);
   }
@@ -390,6 +386,11 @@ app.get("/-/v1/done", async (c) => {
   return c.json({ token }, 200);
 });
 
+// app.get("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
+//   console.log(c.req.url, Object.fromEntries(c.req.raw.headers));
+//   return c.json({ error: "not implemented" }, 500);
+// });
+
 app.get("/-/cli/:sessionId", async (c) => {
   const atcute = c.get("atcute");
   if (!atcute.session)
@@ -420,7 +421,6 @@ app.get("/:package", async (c) => {
   const packageParam = c.req.param("package");
 
   if (!packageParam.startsWith("@")) {
-    console.log("proxy a");
     return proxyRequest(c);
   }
 
@@ -436,7 +436,6 @@ app.get("/:package", async (c) => {
     .catch(() => undefined);
 
   if (!resolved) {
-    console.log("proxy b");
     return proxyRequest(c);
   }
 
@@ -451,7 +450,6 @@ app.get("/:package", async (c) => {
   });
 
   if (!recordResponse.ok) {
-    console.log("proxy c");
     return proxyRequest(c);
   }
 
@@ -490,7 +488,6 @@ app.put("/:package", requireCliAuth(), async (c) => {
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
 
   if (scope.slice(1) !== actor.handle) {
-    console.log("c");
     return c.json({ error: "scope does not match actor handle" }, 403);
   }
 
@@ -521,7 +518,6 @@ app.put("/:package", requireCliAuth(), async (c) => {
 
   for (const [version, meta] of Object.entries(body.versions)) {
     if (versions.some((v) => v.version === version)) {
-      console.log("d");
       return c.json({ error: "version already exists" }, 403);
     }
 
