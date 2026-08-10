@@ -25,8 +25,9 @@ const app = new Hono<Env>();
 app.use(
   async (c, next) => {
     c.header("Cache-Control", "no-cache");
-    c.header("Vary", "cookie");
     await next();
+    c.header("Vary", "accept", { append: true });
+    c.header("Vary", "cookie");
   },
   contextStorage(),
   atcute({

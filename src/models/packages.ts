@@ -247,7 +247,7 @@ export async function indexEvent(
           })
           .catch(() => undefined);
 
-        if (!synced?.success) return { success: true };
+        if (synced?.success) return { success: true };
 
         return { error: "failed to sync" };
       }
@@ -268,7 +268,7 @@ export async function indexEvent(
           })
           .catch(() => undefined);
 
-        if (!synced?.success) return { success: true };
+        if (synced?.success) return { success: true };
 
         return { error: "failed to sync" };
       }
