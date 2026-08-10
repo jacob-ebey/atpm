@@ -8,10 +8,6 @@ const _mainSchema = /*#__PURE__*/ v.record(
     $type: /*#__PURE__*/ v.literal("dev.atpm.alpha.package"),
     createdAt: /*#__PURE__*/ v.datetimeString(),
     tags: /*#__PURE__*/ v.unknown(),
-    /**
-     * @minLength 1
-     */
-    type: /*#__PURE__*/ v.constrain(/*#__PURE__*/ v.string(), [/*#__PURE__*/ v.stringLength(1)]),
     get versions() {
       return /*#__PURE__*/ v.array(packageSchema);
     },

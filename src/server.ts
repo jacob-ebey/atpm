@@ -1,7 +1,6 @@
 import { scope } from "@atcute/oauth-node-client";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
-import { csrf } from "hono/csrf";
 import { atcute } from "hono-atcute";
 import { createStores } from "hono-atcute/cloudflare";
 
@@ -30,7 +29,6 @@ app.use(
     await next();
   },
   contextStorage(),
-  csrf(),
   atcute({
     localdev: import.meta.env.DEV,
     callbackPath: "/oauth/callback",
@@ -41,7 +39,7 @@ app.use(
     scope: () => [
       scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" }),
       scope.repo({
-        collection: ["dev.atpm.alpha.package"],
+        collection: ["dev.atpm.alpha.package", "dev.atpm.alpha.stage"],
         action: ["create", "update", "delete"],
       }),
       scope.blob({ accept: ["application/octet-stream"] }),
@@ -53,8 +51,8 @@ app.use(
   htmxRedirects(),
 );
 
-app.route("/", appController);
 app.route("/registry", registry);
 app.route("/oauth", oauth);
+app.route("/", appController);
 
 export default app;

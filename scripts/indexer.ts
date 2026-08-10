@@ -1,11 +1,8 @@
+import { mkdirSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { JetstreamSubscription } from "@atcute/jetstream";
-import { is } from "@atcute/lexicons";
-
-import { DevAtpmAlphaPackage as DevAtpmPackage } from "../src/lexicons/index.ts";
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 
 const VERSION = 1;
 const VERSION_CACHE = `.cache/cursor-v${VERSION}`;
@@ -19,39 +16,42 @@ if (!process.env.INDEXER_SECRET) {
 
 const indexerBase = new URL(process.env.INDEXER_BASE_URL);
 
-let cursor = await readFile(VERSION_CACHE, "utf8")
-  .then((f) => Number.parseInt(f, 10))
-  .catch(
-    async () =>
-      (await fetch(new URL("/registry/-/index", indexerBase)).then((r) => r.json())) as number,
+const startCursor = await readFile(VERSION_CACHE, "utf8")
+  .then((c) => {
+    let num = Number.parseInt(c);
+    if (!Number.isSafeInteger(num)) throw new Error();
+    return num;
+  })
+  .catch(() =>
+    fetch(new URL("/registry/-/index", indexerBase))
+      .then((r) => r.json())
+      .then((data) => data as number),
   );
+
+let liveCursor = Date.now() * 1000;
+let backfillTasks = 0;
 
 function exitHandler(options: { cleanup?: boolean; exit?: boolean }, _?: number) {
   if (options.cleanup) {
-    mkdirSync(path.dirname(VERSION_CACHE), { recursive: true });
-    writeFileSync(VERSION_CACHE, `${cursor}`);
+    if (backfillTasks === 0) {
+      mkdirSync(path.dirname(VERSION_CACHE), { recursive: true });
+      writeFileSync(VERSION_CACHE, `${liveCursor}`);
+      console.log(`Cursor saved: ${liveCursor}`);
+    } else {
+      console.log("Backfill in progress – not saving cursor.");
+    }
   }
   if (options.exit) process.exit();
 }
 
-// do something when app is closing
 process.on("exit", exitHandler.bind(null, { cleanup: true }));
-// catches ctrl+c event
 process.on("SIGINT", exitHandler.bind(null, { exit: true }));
-// catches "kill pid" (for example: nodemon restart)
 process.on("SIGUSR1", exitHandler.bind(null, { exit: true }));
 process.on("SIGUSR2", exitHandler.bind(null, { exit: true }));
 
-const resumeDate = new Date(cursor / 1000);
-console.log(
-  `Resuming from ${new Intl.DateTimeFormat("en-US", {
-    dateStyle: "full",
-    timeStyle: "long",
-  }).format(resumeDate)}`,
-);
-
 const eventsToSync: {
   type: "create" | "update" | "delete";
+  collection: "dev.atpm.alpha.package" | "dev.atpm.alpha.stage";
   did: string;
   rkey: string;
   cursor: number;
@@ -73,7 +73,7 @@ async function syncEvents() {
     }).catch(() => undefined);
     const json = (await response?.json().catch(() => undefined)) as any;
     if (json?.success) {
-      console.log("synced event", event);
+      console.log("🌀 Synced", event);
     } else {
       console.error("failed to sync event", event, json?.error || "unknown error");
     }
@@ -81,29 +81,98 @@ async function syncEvents() {
   syncing = false;
 }
 
-while (true) {
+async function processSegment(start: number, end: number): Promise<void> {
+  backfillTasks++;
+  console.log(
+    `⏳ Backfilling segment: ${new Date(start / 1000).toISOString()} → ${new Date(end / 1000).toISOString()}`,
+  );
   const subscription = new JetstreamSubscription({
     url: "wss://jetstream2.us-east.bsky.network",
-    wantedCollections: ["dev.atpm.alpha.package"],
-    cursor,
+    wantedCollections: ["dev.atpm.alpha.package", "dev.atpm.alpha.stage"],
+    cursor: start,
   });
 
   for await (const event of subscription) {
-    cursor = event.time_us;
-    if (event.kind !== "commit" || event.commit.collection !== "dev.atpm.alpha.package") {
-      continue;
-    }
+    if (event.time_us >= end) break; // stop at segment end
 
-    if (!is(DevAtpmPackage.mainSchema, event.commit.record)) {
+    if (
+      event.kind !== "commit" ||
+      (event.commit.collection !== "dev.atpm.alpha.package" &&
+        event.commit.collection !== "dev.atpm.alpha.stage")
+    ) {
       continue;
     }
 
     eventsToSync.push({
       type: event.commit.operation,
+      collection: event.commit.collection,
       did: event.did,
       rkey: event.commit.rkey,
       cursor: event.time_us,
     });
     void syncEvents();
   }
+
+  backfillTasks--;
+  console.log(`✅ ${new Date(start / 1000).toISOString()} → ${new Date(end / 1000).toISOString()}`);
+  if (backfillTasks === 0) {
+    console.log(`✅ Backfill Done`);
+  } else {
+    console.log("⏳", backfillTasks, "remaining");
+  }
+}
+
+const nowPromise = Promise.withResolvers<number>();
+
+void (async () => {
+  console.log(`Live subscription starting from ${new Date(liveCursor / 1000).toISOString()}`);
+  const subscription = new JetstreamSubscription({
+    url: "wss://jetstream2.us-east.bsky.network",
+    wantedCollections: ["dev.atpm.alpha.package", "dev.atpm.alpha.stage"],
+  });
+
+  nowPromise.resolve(subscription.cursor);
+
+  for await (const event of subscription) {
+    liveCursor = event.time_us;
+    liveCursor = event.time_us;
+
+    if (
+      event.kind !== "commit" ||
+      (event.commit.collection !== "dev.atpm.alpha.package" &&
+        event.commit.collection !== "dev.atpm.alpha.stage")
+    ) {
+      continue;
+    }
+
+    eventsToSync.push({
+      type: event.commit.operation,
+      collection: event.commit.collection,
+      did: event.did,
+      rkey: event.commit.rkey,
+      cursor: event.time_us,
+    });
+    void syncEvents();
+  }
+})();
+
+const now = await nowPromise.promise;
+const diff = now - startCursor;
+const TEN_MINUTES_US = 10 * 60 * 1_000_000;
+
+if (diff > TEN_MINUTES_US) {
+  const segmentSize = Math.floor(diff / 4);
+  const segments = [];
+  for (let i = 0; i < 4; i++) {
+    const start = startCursor + i * segmentSize;
+    const end = i === 3 ? now : startCursor + (i + 1) * segmentSize;
+    segments.push({ start, end });
+  }
+  console.log(
+    `Backfilling ${(diff / 1_000_000 / 60).toFixed(2)} minutes in 4 parallel segments...`,
+  );
+  void segments.map(({ start, end }) => processSegment(start, end));
+} else {
+  console.log(`Backfilling ${(diff / 1_000_000 / 60).toFixed(2)} minutes in a single segment...`);
+  void processSegment(startCursor, now);
 }

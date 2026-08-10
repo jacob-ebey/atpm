@@ -11,7 +11,7 @@
     {
       "binding": "DB",
       "database_name": "atpm",
-      "database_id": "75ec05a0-0142-4b35-b2ab-484fad323aa7",
+      "database_id": "9b838d20-677b-4943-8411-1d38ebd3999b",
       "migrations_dir": "drizzle",
       "migrations_pattern": "drizzle/*/*.sql",
     },

@@ -7,10 +7,12 @@ catalog:
   "@atcute/atproto": 4.0.4
   "@atcute/cid": 2.4.2
   "@atcute/client": 5.1.1
+  "@atcute/identity-resolver": 2.0.1
   "@atcute/jetstream": 2.0.2
   "@atcute/lex-cli": 3.2.1
   "@atcute/lexicons": 2.0.3
   "@atcute/oauth-node-client": 2.0.1
+  "@atcute/tid": 1.1.4
   "@cloudflare/vite-plugin": 1.51.0
   "@hiogawa/vite-plugin-fullstack": 0.0.11
   "@npm/types": 2.1.0
@@ -32,6 +34,7 @@ catalog:
   tailwindcss: 4.3.3
   template-for-polyfill: 0.1.1
   typescript: 7.0.2
+  uuid: 14.0.1
   valibot: 1.4.2
   validate-npm-package-name: 8.0.0
   vite: npm:@voidzero-dev/vite-plus-core@0.2.7

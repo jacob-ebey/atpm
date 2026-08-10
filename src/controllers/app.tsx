@@ -1,6 +1,7 @@
 import type { Did } from "@atcute/lexicons";
-import type { PackumentVersion } from "@npm/types";
+import type * as npm from "@npm/types";
 import { Hono } from "hono";
+import { csrf } from "hono/csrf";
 import { marked } from "marked";
 import * as v from "valibot";
 
@@ -9,15 +10,24 @@ import { Layout } from "@/containers/layout";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { ReturnToSchema } from "@/lib/return-to";
 import { timeAgo } from "@/lib/time";
-import { readPackage, readRecentPackages, searchPackages } from "@/models/packages";
+import {
+  readPackage,
+  readRecentPackages,
+  readStagedPackages,
+  searchPackages,
+} from "@/models/packages";
+import { requireAuth } from "@/lib/auth";
+import { invariant } from "@/lib/invariant";
 
 const app = new Hono();
+
+app.use(csrf());
 
 app.get("/", async (c) => {
   const atcute = c.get("atcute");
   const recentPackages = await readRecentPackages();
 
-  c.header("Cache-Control", "s-maxage=30; stale-while-revalidate=30");
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -91,9 +101,6 @@ app.get("/", async (c) => {
                   .catch(() => undefined);
                 if (!actor) return null;
 
-                const tags = pkg.tags as Record<string, string>;
-                const latestVersion = tags?.["latest"] || "unknown";
-
                 return (
                   <a href={`/package/${actor.did}/${pkg.rkey}`} class="item block">
                     <section>
@@ -101,7 +108,6 @@ app.get("/", async (c) => {
                         @{actor.handle}/{pkg.rkey}
                       </h3>
                       <p class="flex gap-3">
-                        <span>v{latestVersion}</span>
                         <span>{timeAgo(new Date(pkg.indexedAt).getTime())}</span>
                       </p>
                       <p class="truncate">
@@ -155,9 +161,6 @@ app.get("/search", async (c) => {
                     .catch(() => undefined);
                   if (!actor) return null;
 
-                  const tags = pkg.tags as Record<string, string>;
-                  const latestVersion = tags?.["latest"] || "unknown";
-
                   return (
                     <a href={`/package/${actor.did}/${pkg.rkey}`} class="item block">
                       <section>
@@ -165,7 +168,6 @@ app.get("/search", async (c) => {
                           @{actor.handle}/{pkg.rkey}
                         </h3>
                         <p class="flex gap-3">
-                          <span>v{latestVersion}</span>
                           <span>{timeAgo(new Date(pkg.indexedAt).getTime())}</span>
                         </p>
                         <p class="truncate">
@@ -188,10 +190,11 @@ app.get("/package/:did/:rkey", async (c) => {
   const atcute = c.get("atcute");
   const url = new URL(c.req.url);
   const versionParam = url.searchParams.get("version");
+  const rkey = c.req.param("rkey");
 
   const [actor, pkg] = await Promise.all([
     atcute.actorResolver.resolve(c.req.param("did") as Did).catch(() => undefined),
-    readPackage(c.req.param("did"), c.req.param("rkey")),
+    readPackage(c.req.param("did"), rkey),
   ] as const);
 
   const selectedVersion = versionParam || (pkg?.tags as Record<string, string>)?.latest;
@@ -225,7 +228,7 @@ app.get("/package/:did/:rkey", async (c) => {
     );
   }
 
-  const meta = version.meta as PackumentVersion;
+  const meta = version.meta as npm.PackumentVersion;
 
   let largestHeader = 6;
   if (meta.readme) {
@@ -249,11 +252,11 @@ app.get("/package/:did/:rkey", async (c) => {
     size = `${(version.blob.size / 1024).toFixed(2)} kB`;
   }
 
-  c.header("Cache-Control", "s-maxage=30; stale-while-revalidate=30");
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
-        <title>{`${pkg.rkey} | ATPM`}</title>
+        <title>{`${rkey} | ATPM`}</title>
         <meta name="description" content={meta.description || "No package description."} />
       </Head>
       <Body>
@@ -261,7 +264,7 @@ app.get("/package/:did/:rkey", async (c) => {
           <main>
             <div class="c-x c-y-s">
               <h1 class="font-serif text-3xl leading-tight tracking-tight lg:text-4xl mb-4 break-all">
-                @{actor.handle}/{pkg.rkey}
+                @{actor.handle}/{rkey}
               </h1>
               {meta?.description ? (
                 <p class="max-w-prose text-lg text-muted-foreground mb-6">{meta.description}</p>
@@ -404,14 +407,119 @@ app.get("/package/:did/:rkey", async (c) => {
                   <div class="space-y-2">
                     <h4 class="text-sm leading-none font-semibold">Versions</h4>
                     {versions.map((version) => (
-                      <a href={`?version=${version.version}`} class="block text-sm">
-                        {version.version} - {timeAgo(new Date(version.createdAt).getTime())}
-                      </a>
+                      <div>
+                        <a href={`?version=${version.version}`} class="text-sm underline">
+                          {version.version} - {timeAgo(new Date(version.createdAt).getTime())}
+                        </a>
+                      </div>
                     ))}
                   </div>
                 </aside>
               </div>
             </div>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+app.get("/staged-packages", requireAuth(), async (c) => {
+  const atcute = c.get("atcute");
+  invariant(atcute.session);
+
+  const [actor, staged] = await Promise.all([
+    atcute.actorResolver.resolve(atcute.session.did),
+    readStagedPackages(),
+  ]);
+
+  return c.render(
+    <html>
+      <Head>
+        <title>Staged Packages | ATPM</title>
+        <meta name="description" content="List of staged packages." />
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="c-x c-y-s">
+              {!staged?.length ? (
+                <>
+                  <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                    No staged packages
+                  </h1>
+                  <p class="max-w-prose text-lg text-muted-foreground mb-6">
+                    You currently have no staged packages.
+                  </p>
+                </>
+              ) : (
+                staged.map(async (staged) => (
+                  <div class="card">
+                    <header>
+                      <h3>
+                        @{actor.handle}/{staged.name}
+                      </h3>
+                      <p class="flex gap-3">
+                        <span>{timeAgo(new Date(staged.createdAt).getTime())}</span>
+                      </p>
+                    </header>
+                    <section class="flex flex-col gap-6 sm:flex-row">
+                      <div class="space-y-2">
+                        <h4 class="text-sm leading-none font-semibold">Date</h4>
+                        <div class="text-sm">
+                          <time datetime={staged.createdAt}>
+                            {new Intl.DateTimeFormat("en-US", {
+                              timeZone: "UTC",
+                              dateStyle: "long",
+                              timeStyle: "long",
+                            }).format(new Date(staged.createdAt))}
+                          </time>
+                        </div>
+                      </div>
+                      <div class="space-y-2 flex-1">
+                        <h4 class="text-sm leading-none font-semibold">URI</h4>
+                        <div class="text-sm break-all">{staged.uri}</div>
+                      </div>
+                      <div class="space-y-2 flex-1">
+                        <h4 class="text-sm leading-none font-semibold">Shasum</h4>
+                        <div class="text-sm break-all">
+                          {(staged.meta as npm.PackumentVersion).dist.shasum}
+                        </div>
+                      </div>
+                    </section>
+                    <footer class="flex gap-2">
+                      <button
+                        type="button"
+                        class="btn"
+                        name="_action"
+                        value="approve"
+                        onclick={() => {
+                          "use client";
+                          console.log("Approve");
+                        }}
+                      >
+                        Approve
+                      </button>
+                      <a
+                        class="btn"
+                        data-variant="secondary"
+                        href={`/staged-package/${staged.uri.replace(/^at:\/\//, "").replace(/\/dev\.atpm\.alpha\.stage/, "")}`}
+                      >
+                        Review
+                      </a>
+                      <form
+                        method="post"
+                        action={`/staged-package/${staged.uri.replace(/^at:\/\//, "").replace(/\/dev\.atpm\.alpha\.stage/, "")}/reject`}
+                      >
+                        <button type="submit" class="btn" data-variant="destructive">
+                          Reject
+                        </button>
+                      </form>
+                    </footer>
+                  </div>
+                ))
+              )}
+            </section>
           </main>
         </Layout>
       </Body>
@@ -500,6 +608,36 @@ app.get("/login", (c) => {
                 </div>
               </div>
             )}
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+app.all("*", (c) => {
+  c.status(404);
+  return c.render(
+    <html>
+      <Head>
+        <title>404 Not Found</title>
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="empty">
+              <header>
+                <h3>404 Not Found</h3>
+                <p>We couldn't find the page you're looking for.</p>
+              </header>
+              <footer>
+                <div class="flex gap-2">
+                  <a href="/" class="btn">
+                    Go Home
+                  </a>
+                </div>
+              </footer>
+            </section>
           </main>
         </Layout>
       </Body>

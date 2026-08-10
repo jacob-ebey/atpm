@@ -1,0 +1,36 @@
+{
+  "$type": "com.atproto.lexicon.schema",
+  "defs": {
+    "main": {
+      "key": "any",
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": ["createdAt", "name", "version", "tags", "meta", "blob"],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "unknown"
+          },
+          "meta": {
+            "type": "unknown"
+          },
+          "blob": {
+            "type": "blob"
+          }
+        }
+      }
+    }
+  },
+  "id": "dev.atpm.alpha.stage",
+  "lexicon": 1
+}

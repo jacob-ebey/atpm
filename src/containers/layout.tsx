@@ -3,6 +3,7 @@ import type { JSXChild } from "srv-jsx";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { getContext } from "hono/context-storage";
+import { estimateStagedPackages } from "@/models/packages";
 
 export async function Layout({ children }: { children?: JSXChild }) {
   const c = getContext<Env>();
@@ -11,9 +12,11 @@ export async function Layout({ children }: { children?: JSXChild }) {
   const handlePromise = atcute.session
     ? atcute.actorResolver
         .resolve(atcute.session.did)
-        .then((r) => r.handle || r.did)
+        .then((r) => r.handle)
         .catch(() => atcute.session!.did)
     : null;
+
+  const stagedPackagesPromise = estimateStagedPackages();
 
   return (
     <>
@@ -78,6 +81,16 @@ export async function Layout({ children }: { children?: JSXChild }) {
                       data-variant="outline"
                     >
                       <span class="truncate">{handlePromise}</span>
+                      {stagedPackagesPromise.then((c) =>
+                        c > 0 ? (
+                          <span
+                            class="badge"
+                            aria-label={`${c} staged package${c !== 1 ? "s" : ""}`}
+                          >
+                            {c}
+                          </span>
+                        ) : null,
+                      )}
                     </button>
                     <div
                       id="dropdown-account-popover"
@@ -94,6 +107,11 @@ export async function Layout({ children }: { children?: JSXChild }) {
                         method="post"
                         action="/oauth/logout"
                       >
+                        <a role="menuitem" href="/staged-packages">
+                          Staged Packages{" "}
+                          {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
+                        </a>
+                        <hr role="separator" />
                         <button type="submit" role="menuitem">
                           Logout
                         </button>
@@ -176,7 +194,9 @@ export async function Layout({ children }: { children?: JSXChild }) {
                 )}
               </div>
             </div>
-
+            <a href="/staged-packages" class="btn" data-variant="outline">
+              Staged Packages {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
+            </a>
             <form class="flex-1 sm:flex-0" action="/search">
               <div class="input-group">
                 <input type="text" placeholder="Search..." name="q" />
