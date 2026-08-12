@@ -31,6 +31,7 @@ After=network.target
 Type=simple
 ExecStart=${NODE_BIN} ${INDEXER_PATH}
 WorkingDirectory=${__dirname}
+EnvironmentFile=/etc/default/indexer
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
