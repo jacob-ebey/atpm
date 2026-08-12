@@ -17,7 +17,9 @@ export const requireAuth = (): MiddlewareHandler => async (c, next) => {
 };
 
 export const requireCliAuth =
-  (): MiddlewareHandler<{
+  (
+    claims?: Record<string, unknown>,
+  ): MiddlewareHandler<{
     Bindings: Cloudflare.Env;
     Variables: {
       atcute: {
@@ -42,9 +44,10 @@ export const requireCliAuth =
     let restrictedToPackage: string | undefined;
     if (authorization.startsWith("cli")) {
       console.log("CLI");
-      const token = authorization.slice(4);
+      const token = authorization.slice(3);
       const verified = await jose
         .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET), {
+          ...claims,
           issuer: url.origin,
         })
         .catch(() => false as const);
@@ -59,10 +62,13 @@ export const requireCliAuth =
         return c.json({ error: "invalid session" }, 401);
       did = res.did;
     } else if (authorization.startsWith("ci")) {
-      const token = authorization.slice(3);
+      const token = authorization.slice(2);
       console.log("CI");
       const verified = await jose
-        .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET))
+        .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET), {
+          ...claims,
+          issuer: url.origin,
+        })
         .catch((e) => {
           console.error("jwtVerify error", e);
           return false as const;

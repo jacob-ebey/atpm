@@ -1,8 +1,13 @@
-import { ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords } from "@atcute/atproto";
-import { Client, simpleFetchHandler } from "@atcute/client";
-import { is, safeParse, type Did, type ResourceUri } from "@atcute/lexicons";
+import {
+  ComAtprotoRepoApplyWrites,
+  ComAtprotoRepoDeleteRecord,
+  ComAtprotoRepoGetRecord,
+  ComAtprotoRepoListRecords,
+} from "@atcute/atproto";
+import { is, parseResourceUri, safeParse, type Did, type ResourceUri } from "@atcute/lexicons";
 import { and, count, eq, like, max, sql } from "drizzle-orm";
 import { getContext } from "hono/context-storage";
+import { v5 as uuid } from "uuid";
 import * as v from "valibot";
 
 import * as s from "@/db/schema";
@@ -12,8 +17,6 @@ import {
   DevAtpmAlphaTrustPublisher as DevAtpmTrustPublisher,
 } from "@/lexicons";
 import { invariant } from "@/lib/invariant";
-import type { ResolvedActor } from "@atcute/identity-resolver";
-import type { OAuthSession } from "@atcute/oauth-node-client";
 
 const FIRST_EVENT = 1786224527583480;
 
@@ -25,16 +28,11 @@ const IndexEventSchema = v.object({
   cursor: v.number(),
 });
 
-export async function readPackage(did: string, rkey: string) {
+export async function readPackage(did: Did, rkey: string) {
   const c = getContext();
   const atcute = c.get("atcute");
 
-  const actor = await atcute.actorResolver.resolve(did as Did).catch(() => undefined);
-
-  if (!actor) return undefined;
-
-  const client =
-    atcute.client ?? new Client({ handler: simpleFetchHandler({ service: actor.pds }) });
+  const client = await atcute.publicClientFor(did);
 
   const record = await client.call(ComAtprotoRepoGetRecord, {
     params: {
@@ -80,28 +78,18 @@ export async function estimateStagedPackages() {
 }
 
 export async function readStagedPackages() {
-  const c = getContext<{
-    Variables: {
-      actor: ResolvedActor;
-      cliSession: OAuthSession;
-    };
-  }>();
+  const c = getContext();
   const atcute = c.get("atcute");
-  const cliSession = c.get("cliSession");
 
-  const client = cliSession ? new Client({ handler: cliSession }) : atcute.client;
-  const session = cliSession ? cliSession : atcute.session;
-
-  invariant(client);
-  invariant(session);
+  invariant(atcute.authenticated);
 
   const results: (DevAtpmStage.Main & { cid: string; uri: ResourceUri })[] = [];
 
   let cursor: string | undefined;
   do {
-    const result = await client.call(ComAtprotoRepoListRecords, {
+    const result = await atcute.client.call(ComAtprotoRepoListRecords, {
       params: {
-        repo: session.did,
+        repo: atcute.session.did,
         collection: "dev.atpm.alpha.stage",
         limit: 100,
         cursor,
@@ -199,7 +187,7 @@ export async function indexEvent(
   const actor = await atcute.actorResolver.resolve(event.did as Did).catch(() => undefined);
   if (!actor) return { error: "actor not found" };
 
-  const atcuteClient = new Client({ handler: simpleFetchHandler({ service: actor.pds }) });
+  const atcuteClient = await atcute.publicClientFor(actor.did);
 
   const record = await atcuteClient
     .call(ComAtprotoRepoGetRecord, {
@@ -281,20 +269,15 @@ export async function indexEvent(
   return { success: true };
 }
 
-export async function readPublishers(repo: string, rkey: string) {
+export async function readPublishers(did: Did, rkey: string) {
   const c = getContext();
   const atcute = c.get("atcute");
 
-  const actor = await atcute.actorResolver.resolve(repo as Did).catch(() => null);
-  if (!actor) return null;
-
-  const client = new Client({
-    handler: simpleFetchHandler({ service: actor.pds }),
-  });
+  const client = await atcute.publicClientFor(did);
 
   const record = await client.call(ComAtprotoRepoGetRecord, {
     params: {
-      repo: repo as Did,
+      repo: did,
       collection: "dev.atpm.alpha.trustPublisher",
       rkey,
     },
@@ -305,5 +288,180 @@ export async function readPublishers(repo: string, rkey: string) {
     return null;
   }
 
-  return record.data.value;
+  const validated = safeParse(DevAtpmTrustPublisher.mainSchema, record.data.value);
+
+  if (!validated.ok) return null;
+
+  return validated.value;
+}
+
+export async function approveStaged(stageId: string): Promise<
+  | {
+      success?: false;
+      error: string;
+      status: number;
+    }
+  | {
+      success: true;
+    }
+> {
+  const c = getContext();
+  const atcute = c.get("atcute");
+  const db = c.get("db");
+  invariant(atcute.authenticated);
+
+  const staged = await readStagedPackages();
+  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
+  if (!pkg) {
+    return {
+      error: "Not Found - No staged package version found with the provided ID.",
+      status: 404,
+    };
+  }
+
+  const actor = await atcute.actorResolver.resolve(atcute.session.did).catch(() => null);
+  const [scope, name] = pkg.name.split("/");
+  if (!scope?.startsWith("@")) return { error: "package name must include @ scope", status: 400 };
+  if (!actor || scope.slice(1) !== actor.handle) {
+    return { error: "scope does not match actor handle", status: 403 };
+  }
+  if (atcute.restrictedToPackage && atcute.restrictedToPackage !== name) {
+    return { error: "scope does not allow this package name", status: 403 };
+  }
+
+  const existingPackage = await atcute.client.call(ComAtprotoRepoGetRecord, {
+    params: {
+      repo: atcute.session.did,
+      collection: "dev.atpm.alpha.package",
+      rkey: name,
+    },
+  });
+
+  const versions: DevAtpmPackage.Package[] = existingPackage?.ok
+    ? [...(existingPackage.data.value.versions as DevAtpmPackage.Package[])]
+    : [];
+
+  if (versions.some((version) => version.version === pkg.version)) {
+    return { error: "version already exists", status: 403 };
+  }
+
+  versions.unshift({
+    $type: "dev.atpm.alpha.package#package",
+    createdAt: new Date().toISOString(),
+    version: pkg.version,
+    blob: pkg.blob,
+    meta: pkg.meta,
+  });
+
+  const record: DevAtpmPackage.Main = {
+    $type: "dev.atpm.alpha.package",
+    createdAt: new Date().toISOString(),
+    tags: {
+      ...(existingPackage.ok
+        ? (existingPackage.data.value as { tags?: Record<string, string> }).tags
+        : undefined),
+      ...pkg.tags,
+    },
+    versions,
+  };
+
+  const rkey = parseResourceUri(pkg.uri).rkey!;
+
+  const updated = await atcute.client.call(ComAtprotoRepoApplyWrites, {
+    input: {
+      repo: atcute.session.did,
+      writes: [
+        existingPackage.ok
+          ? {
+              $type: "com.atproto.repo.applyWrites#update",
+              collection: "dev.atpm.alpha.package",
+              rkey: name,
+              value: record,
+            }
+          : {
+              $type: "com.atproto.repo.applyWrites#create",
+              collection: "dev.atpm.alpha.package",
+              rkey: name,
+              value: record,
+            },
+        {
+          $type: "com.atproto.repo.applyWrites#delete",
+          collection: "dev.atpm.alpha.stage",
+          rkey: rkey,
+        },
+      ],
+    },
+  });
+
+  if (!updated.ok) return { error: "failed to update record", status: 500 };
+
+  const indexedAt = new Date().toISOString();
+  await db
+    .insert(s.pkg)
+    .values({
+      createdAt: record.createdAt,
+      did: atcute.session.did,
+      rkey: name,
+    })
+    .onConflictDoUpdate({
+      target: [s.pkg.did, s.pkg.rkey],
+      set: {
+        indexedAt,
+      },
+    })
+    .catch(console.error.bind(console));
+
+  await db.delete(s.stage).where(and(eq(s.stage.did, actor.did), eq(s.stage.rkey, rkey)));
+
+  return { success: true };
+}
+
+export async function rejectStaged(stageId: string): Promise<
+  | {
+      success?: false;
+      error: string;
+      status: number;
+    }
+  | {
+      success: true;
+    }
+> {
+  const c = getContext();
+  const atcute = c.get("atcute");
+  const db = c.get("db");
+  invariant(atcute.authenticated);
+
+  const staged = await readStagedPackages();
+  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
+  if (!pkg) {
+    return {
+      error: "Not Found - No staged package version found with the provided ID.",
+      status: 404,
+    };
+  }
+
+  const uri = parseResourceUri(pkg.uri);
+  if (!uri.collection || !uri.rkey) {
+    return {
+      error: "Not Found - No staged package version found with the provided ID.",
+      status: 404,
+    };
+  }
+
+  await db
+    .delete(s.stage)
+    .where(and(eq(s.stage.did, atcute.session.did), eq(s.stage.rkey, uri.rkey)));
+
+  const deleted = await atcute.client.call(ComAtprotoRepoDeleteRecord, {
+    input: {
+      repo: atcute.session.did,
+      collection: "dev.atpm.alpha.stage",
+      rkey: uri.rkey,
+    },
+  });
+  if (!deleted.ok) {
+    return { error: deleted.data.error, status: 500 };
+  }
+
+  return { success: true };
 }

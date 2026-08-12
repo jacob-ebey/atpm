@@ -12,6 +12,8 @@ const _mainSchema = /*#__PURE__*/ v.record(
   /*#__PURE__*/ v.string(),
   /*#__PURE__*/ v.object({
     $type: /*#__PURE__*/ v.literal("dev.atpm.alpha.trustPublisher"),
+    allowPublish: /*#__PURE__*/ v.boolean(),
+    allowStage: /*#__PURE__*/ v.boolean(),
     createdAt: /*#__PURE__*/ v.datetimeString(),
     /**
      * Trust config for GitHub Actions. Other providers (e.g. gitlab, circleci) will add their own config refs alongside this one.

@@ -6,11 +6,17 @@
       "type": "record",
       "record": {
         "type": "object",
-        "required": ["createdAt"],
+        "required": ["createdAt", "allowStage", "allowPublish"],
         "properties": {
           "createdAt": {
             "type": "string",
             "format": "datetime"
+          },
+          "allowStage": {
+            "type": "boolean"
+          },
+          "allowPublish": {
+            "type": "boolean"
           },
           "github": {
             "type": "ref",

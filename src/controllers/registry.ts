@@ -1,4 +1,4 @@
-import { type ActorIdentifier, type Handle, parseResourceUri } from "@atcute/lexicons";
+import { type ActorIdentifier, type Handle } from "@atcute/lexicons";
 import * as TID from "@atcute/tid";
 import type * as npm from "@npm/types";
 import { Context, Hono } from "hono";
@@ -8,9 +8,7 @@ import validatePackageName from "validate-npm-package-name";
 
 import * as s from "@/db/schema";
 import {
-  ComAtprotoRepoApplyWrites,
   ComAtprotoRepoCreateRecord,
-  ComAtprotoRepoDeleteRecord,
   ComAtprotoRepoGetRecord,
   ComAtprotoRepoPutRecord,
   ComAtprotoRepoUploadBlob,
@@ -20,9 +18,15 @@ import {
   DevAtpmAlphaStage as DevAtpmStage,
 } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
-import { readCursor, indexEvent, readStagedPackages, readPublishers } from "@/models/packages";
+import {
+  readCursor,
+  indexEvent,
+  readStagedPackages,
+  readPublishers,
+  rejectStaged,
+  approveStaged,
+} from "@/models/packages";
 import { requireCliAuth } from "@/lib/auth";
-import { and, eq } from "drizzle-orm";
 import { AUTH_SESSION_TIMEOUT } from "@/models/cli-auth-session";
 
 const app = new Hono<Env>();
@@ -59,7 +63,7 @@ app.get("/-/stage", requireCliAuth(), async (c) => {
   });
 });
 
-app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
+app.post("/-/stage/package/:package", requireCliAuth({ "atpm:allowStage": true }), async (c) => {
   const atcute = c.get("atcute");
   const db = c.get("db");
   const packageParam = c.req.param("package");
@@ -176,116 +180,13 @@ app.get("/-/stage/:stageId/tarball", requireCliAuth(), async (c) => {
   return fetch((pkg.meta as npm.PackumentVersion).dist.tarball);
 });
 
-app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
-  const atcute = c.get("atcute");
-  const db = c.get("db");
+app.post("/-/stage/:stageId/approve", requireCliAuth({ "atpm:allowPublish": true }), async (c) => {
   const stageId = c.req.param("stageId");
 
-  const staged = await readStagedPackages();
-  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
-  if (!pkg) {
-    return c.json(
-      {
-        error: "Not Found - No staged package version found with the provided ID.",
-      },
-      404,
-    );
+  const result = await approveStaged(stageId);
+  if (!result.success) {
+    return c.json({ error: result.error }, result.status as 400);
   }
-
-  const actor = await atcute.actorResolver.resolve(atcute.session.did).catch(() => null);
-  const [scope, name] = pkg.name.split("/");
-  if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
-  if (!actor || scope.slice(1) !== actor.handle) {
-    return c.json({ error: "scope does not match actor handle" }, 403);
-  }
-  if (atcute.restrictedToPackage && atcute.restrictedToPackage !== name) {
-    return c.json({ error: "scope does not allow this package name" }, 403);
-  }
-
-  const existingPackage = await atcute.client.call(ComAtprotoRepoGetRecord, {
-    params: {
-      repo: atcute.session.did,
-      collection: "dev.atpm.alpha.package",
-      rkey: name,
-    },
-  });
-
-  const versions: DevAtpmPackage.Package[] = existingPackage?.ok
-    ? [...(existingPackage.data.value.versions as DevAtpmPackage.Package[])]
-    : [];
-
-  if (versions.some((version) => version.version === pkg.version)) {
-    return c.json({ error: "version already exists" }, 403);
-  }
-
-  versions.unshift({
-    $type: "dev.atpm.alpha.package#package",
-    createdAt: new Date().toISOString(),
-    version: pkg.version,
-    blob: pkg.blob,
-    meta: pkg.meta,
-  });
-
-  const record: DevAtpmPackage.Main = {
-    $type: "dev.atpm.alpha.package",
-    createdAt: new Date().toISOString(),
-    tags: {
-      ...(existingPackage.ok
-        ? (existingPackage.data.value as { tags?: Record<string, string> }).tags
-        : undefined),
-      ...pkg.tags,
-    },
-    versions,
-  };
-
-  const rkey = parseResourceUri(pkg.uri).rkey!;
-
-  const updated = await atcute.client.call(ComAtprotoRepoApplyWrites, {
-    input: {
-      repo: atcute.session.did,
-      writes: [
-        existingPackage.ok
-          ? {
-              $type: "com.atproto.repo.applyWrites#update",
-              collection: "dev.atpm.alpha.package",
-              rkey: name,
-              value: record,
-            }
-          : {
-              $type: "com.atproto.repo.applyWrites#create",
-              collection: "dev.atpm.alpha.package",
-              rkey: name,
-              value: record,
-            },
-        {
-          $type: "com.atproto.repo.applyWrites#delete",
-          collection: "dev.atpm.alpha.stage",
-          rkey: rkey,
-        },
-      ],
-    },
-  });
-
-  if (!updated.ok) return c.json({ error: "failed to update record" }, 500);
-
-  const indexedAt = new Date().toISOString();
-  await db
-    .insert(s.pkg)
-    .values({
-      createdAt: record.createdAt,
-      did: atcute.session.did,
-      rkey: name,
-    })
-    .onConflictDoUpdate({
-      target: [s.pkg.did, s.pkg.rkey],
-      set: {
-        indexedAt,
-      },
-    })
-    .catch(console.error.bind(console));
-
-  await db.delete(s.stage).where(and(eq(s.stage.did, actor.did), eq(s.stage.rkey, rkey)));
-
   return c.json({ success: true });
 });
 
@@ -318,39 +219,12 @@ app.get("/-/stage/:stageId", requireCliAuth(), async (c) => {
   });
 });
 
-app.delete("/-/stage/:stageId", requireCliAuth(), async (c) => {
-  const atcute = c.get("atcute");
+app.delete("/-/stage/:stageId", requireCliAuth({ "atpm:allowStageDelete": true }), async (c) => {
   const stageId = c.req.param("stageId");
 
-  const staged = await readStagedPackages();
-  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
-  if (!pkg) {
-    return c.json(
-      {
-        error: "Not Found - No staged package version found with the provided ID.",
-      },
-      404,
-    );
-  }
-
-  const uri = parseResourceUri(pkg.uri);
-  if (!uri.collection || !uri.rkey) {
-    return c.json(
-      {
-        error: "Not Found - No staged package version found with the provided ID.",
-      },
-      404,
-    );
-  }
-  const deleted = await atcute.client.call(ComAtprotoRepoDeleteRecord, {
-    input: {
-      repo: atcute.session.did,
-      collection: uri.collection,
-      rkey: uri.rkey,
-    },
-  });
-  if (!deleted.ok) {
-    return c.json({ error: deleted.data.error }, 500);
+  const result = await rejectStaged(stageId);
+  if (!result.success) {
+    return c.json({ error: result.error }, result.status as 400);
   }
   return c.json({ success: true });
 });
@@ -387,13 +261,17 @@ app.get("/-/v1/done", async (c) => {
   if (!oauthSession) return c.json({ error: "no session" }, 404);
   if (!result.secret) return c.json({ error: "no secret" }, 404);
 
-  const token = await new jose.SignJWT()
+  const token = await new jose.SignJWT({
+    "atpm:allowPublish": true,
+    "atpm:allowStage": true,
+    "atpm:allowStageDelete": true,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer(url.origin)
     .setSubject(sessionId)
     .setAudience(result.secret)
-    .setExpirationTime(AUTH_SESSION_TIMEOUT + "ms")
+    .setExpirationTime(AUTH_SESSION_TIMEOUT / 1000 + "s")
     .sign(new TextEncoder().encode(c.env.SESSION_SECRET));
 
   return c.json({ token: `cli${token}` }, 200);
@@ -428,7 +306,7 @@ app.post("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
       ),
       {
         issuer: "https://token.actions.githubusercontent.com",
-        // audience: `npm:${url.hostname}`,
+        audience: `npm:${url.host}`,
       },
     )
     .catch((err) => {
@@ -451,7 +329,11 @@ app.post("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
     return c.json({ error: "invalid token" }, 401);
   }
 
-  const token = await new jose.SignJWT()
+  const token = await new jose.SignJWT({
+    "atpm:allowPublish": publishers.allowPublish,
+    "atpm:allowStage": publishers.allowStage,
+    "atpm:allowStageDelete": false,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setIssuer(url.origin)
@@ -518,7 +400,9 @@ app.get("/:package", async (c) => {
     return proxyRequest(c);
   }
 
-  const recordResponse = await atcute.publicClient.get("com.atproto.repo.getRecord", {
+  const client = await atcute.publicClientFor(resolved.did);
+
+  const recordResponse = await client.get("com.atproto.repo.getRecord", {
     params: {
       repo: resolved.did,
       collection: "dev.atpm.alpha.package",
@@ -556,7 +440,7 @@ app.get("/:package", async (c) => {
   } satisfies npm.Packument);
 });
 
-app.put("/:package", requireCliAuth(), async (c) => {
+app.put("/:package", requireCliAuth({ "atpm:allowPublish": true }), async (c) => {
   const atcute = c.get("atcute");
   const db = c.get("db");
   const packageParam = c.req.param("package");
@@ -671,11 +555,6 @@ app.put("/:package", requireCliAuth(), async (c) => {
     .catch(console.error.bind(console));
 
   return c.json({ success: true });
-});
-
-app.all("*", (c) => {
-  console.log(c.req.method, c.req.url);
-  return c.json({ error: "not found" }, 404);
 });
 
 function proxyRequest(c: Context, body?: BodyInit | null) {

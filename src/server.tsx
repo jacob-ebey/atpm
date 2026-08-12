@@ -47,12 +47,6 @@ app.use(
       scope.blob({ accept: ["application/octet-stream"] }),
     ],
     stores: (c) => createStores(c.env.ATPROTO_STORE),
-    fetch(input, init) {
-      return fetch(input, {
-        ...init,
-        cache: "no-cache",
-      });
-    },
   }),
   database(),
   srvJsxRenderer(),
@@ -60,9 +54,8 @@ app.use(
 );
 
 app.route("/oauth", oauth);
-app.route("/registry", registry);
-app.route("/", registry);
 app.route("/", appController);
+app.route("/", registry);
 app.notFound((c) => {
   c.status(404);
   return c.render(

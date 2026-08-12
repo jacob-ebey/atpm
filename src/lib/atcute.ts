@@ -11,7 +11,7 @@ import {
   type ActorResolver,
 } from "@atcute/identity-resolver";
 import { NodeDnsHandleResolver } from "@atcute/identity-resolver-node";
-import { isDid } from "@atcute/lexicons/syntax";
+import { isDid, type ActorIdentifier } from "@atcute/lexicons/syntax";
 import {
   OAuthClient,
   OAuthSession,
@@ -28,15 +28,16 @@ type Atcute =
       actorResolver: ActorResolver;
       client: Client;
       oauth: OAuthClient;
-      publicClient: Client;
+      publicClientFor: (didOrHandle: ActorIdentifier) => Promise<Client>;
       session: OAuthSession;
+      restrictedToPackage?: string;
     }
   | {
       authenticated: false;
       actorResolver: ActorResolver;
       client?: Client;
       oauth: OAuthClient;
-      publicClient: Client;
+      publicClientFor: (didOrHandle: ActorIdentifier) => Promise<Client>;
       session?: OAuthSession;
     };
 
@@ -131,7 +132,6 @@ function createOAuthClient(args: {
 }
 
 type Args = {
-  fetch?: typeof fetch;
   actorResolver?: ActorResolver;
   callbackPath: string;
   metadata?: Metadata | ((c: Context) => Metadata);
@@ -153,7 +153,6 @@ type Args = {
 
 export const atcute =
   ({
-    fetch,
     actorResolver,
     callbackPath,
     metadata,
@@ -168,20 +167,24 @@ export const atcute =
       handleResolver: new CompositeHandleResolver({
         methods: {
           dns: new NodeDnsHandleResolver(),
-          http: new WellKnownHandleResolver({ fetch }),
+          http: new WellKnownHandleResolver(),
         },
       }),
       didDocumentResolver: new CompositeDidDocumentResolver({
         methods: {
-          plc: new PlcDidDocumentResolver({ fetch }),
-          web: new WebDidDocumentResolver({ fetch }),
+          plc: new PlcDidDocumentResolver(),
+          web: new WebDidDocumentResolver(),
         },
       }),
     });
 
     const oauth = createOAuthClient({
       c,
-      fetch,
+      fetch: (input: string | Request | URL, init?: RequestInit) =>
+        fetch(input, {
+          ...init,
+          cache: "no-cache",
+        }),
       actorResolver,
       callbackPath,
       privateKeyJwk,
@@ -209,24 +212,29 @@ export const atcute =
       session = await oauth.restore(did).catch(() => undefined);
     }
 
-    const publicClient = new Client({
-      handler: simpleFetchHandler({ service: "https://public.api.bsky.app", fetch }),
-    });
+    const publicClientFor = async (didOrHandle: ActorIdentifier) => {
+      const actor = await actorResolver!.resolve(didOrHandle);
+      return new Client({
+        handler: simpleFetchHandler({ service: actor.pds }),
+      });
+    };
 
     const atcute: Atcute = session
       ? {
           authenticated: true,
           actorResolver,
-          client: new Client({ handler: session }),
+          client: new Client({
+            handler: session,
+          }),
           oauth,
-          publicClient,
+          publicClientFor,
           session,
         }
       : {
           authenticated: false,
           actorResolver,
           oauth,
-          publicClient,
+          publicClientFor,
         };
 
     c.set("atcute", atcute);

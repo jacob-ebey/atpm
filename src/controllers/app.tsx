@@ -1,7 +1,6 @@
 import type { Did } from "@atcute/lexicons";
 import type * as npm from "@npm/types";
 import { Hono } from "hono";
-import { csrf } from "hono/csrf";
 import { marked } from "marked";
 import * as v from "valibot";
 
@@ -20,8 +19,6 @@ import { requireAuth } from "@/lib/auth";
 import { invariant } from "@/lib/invariant";
 
 const app = new Hono();
-
-app.use(csrf());
 
 app.get("/", async (c) => {
   const atcute = c.get("atcute");
@@ -190,11 +187,12 @@ app.get("/package/:did/:rkey", async (c) => {
   const atcute = c.get("atcute");
   const url = new URL(c.req.url);
   const versionParam = url.searchParams.get("version");
+  const did = c.req.param("did") as Did;
   const rkey = c.req.param("rkey");
 
   const [actor, pkg] = await Promise.all([
     atcute.actorResolver.resolve(c.req.param("did") as Did).catch(() => undefined),
-    readPackage(c.req.param("did"), rkey),
+    readPackage(did, rkey),
   ] as const);
 
   const selectedVersion = versionParam || (pkg?.tags as Record<string, string>)?.latest;
@@ -428,10 +426,7 @@ app.get("/staged-packages", requireAuth(), async (c) => {
   const atcute = c.get("atcute");
   invariant(atcute.session);
 
-  const [actor, staged] = await Promise.all([
-    atcute.actorResolver.resolve(atcute.session.did),
-    readStagedPackages(),
-  ]);
+  const staged = await readStagedPackages();
 
   return c.render(
     <html>
@@ -456,9 +451,7 @@ app.get("/staged-packages", requireAuth(), async (c) => {
                 staged.map(async (staged) => (
                   <div class="card">
                     <header>
-                      <h3>
-                        @{actor.handle}/{staged.name}
-                      </h3>
+                      <h3>{staged.name}</h3>
                       <p class="flex gap-3">
                         <span>{timeAgo(new Date(staged.createdAt).getTime())}</span>
                       </p>
