@@ -234,7 +234,7 @@ app.post("/-/v1/login", async (c) => {
   const session = c.env.CLI_AUTH_SESSION.getByName(sessionId);
   await session.setup();
 
-  const loginUrl = new URL("/login", c.req.url);
+  const loginUrl = new URL("/auth/login", c.req.url);
   loginUrl.searchParams.set("returnTo", `/registry/-/cli/${sessionId}`);
 
   const doneUrl = new URL("/registry/-/v1/done", c.req.url);
@@ -349,16 +349,16 @@ app.get("/-/cli/:sessionId", async (c) => {
   const atcute = c.get("atcute");
   if (!atcute.session)
     return c.redirect(
-      new URL(`/login?error=${encodeURI("Failed to login: no session")}`, c.req.url),
+      new URL(`/auth/login?error=${encodeURI("Failed to login: no session")}`, c.req.url),
     );
   const session = c.env.CLI_AUTH_SESSION.getByName(c.req.param("sessionId"));
   const result = await session.finish(atcute.session.did);
   if (result.state !== "done") {
     return c.redirect(
-      new URL(`/login?error=${encodeURI("Failed to login: invalid state")}`, c.req.url),
+      new URL(`/auth/login?error=${encodeURI("Failed to login: invalid state")}`, c.req.url),
     );
   }
-  return c.redirect(new URL("/login?success", c.req.url));
+  return c.redirect(new URL("/auth/login?success", c.req.url));
 });
 
 app.get("/-/index", async (c) => {

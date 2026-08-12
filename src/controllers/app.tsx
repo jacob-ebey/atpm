@@ -425,7 +425,7 @@ app.get("/package/:did/:rkey", async (c) => {
   );
 });
 
-app.get("/staged-packages", requireAuth(), async (c) => {
+app.get("/dash/staged-packages", requireAuth(), async (c) => {
   const atcute = c.get("atcute");
   invariant(atcute.session);
 
@@ -497,7 +497,7 @@ app.get("/staged-packages", requireAuth(), async (c) => {
                           </div>
                         </section>
                         <footer class="flex gap-2">
-                          <form method="post" action={`/staged-package/${stageId}/approve`}>
+                          <form method="post" action={`/dash/staged-package/${stageId}/approve`}>
                             <button type="submit" class="btn">
                               Approve
                             </button>
@@ -505,11 +505,11 @@ app.get("/staged-packages", requireAuth(), async (c) => {
                           <a
                             class="btn"
                             data-variant="secondary"
-                            href={`/staged-package/${stageId}`}
+                            href={`/dash/staged-package/${stageId}`}
                           >
                             Review
                           </a>
-                          <form method="post" action={`/staged-package/${stageId}/reject`}>
+                          <form method="post" action={`/dash/staged-package/${stageId}/reject`}>
                             <button type="submit" class="btn" data-variant="destructive">
                               Reject
                             </button>
@@ -528,7 +528,7 @@ app.get("/staged-packages", requireAuth(), async (c) => {
   );
 });
 
-app.get("/staged-package/:stageId", requireAuth(), async (c) => {
+app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
   const stageId = c.req.param("stageId");
   const staged = await readStagedPackages();
   const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
@@ -582,12 +582,12 @@ app.get("/staged-package/:stageId", requireAuth(), async (c) => {
                 </div>
               </section>
               <footer class="flex gap-2">
-                <form method="post" action={`/staged-package/${stageId}/approve`}>
+                <form method="post" action={`/dash/staged-package/${stageId}/approve`}>
                   <button type="submit" class="btn">
                     Approve
                   </button>
                 </form>
-                <form method="post" action={`/staged-package/${stageId}/reject`}>
+                <form method="post" action={`/dash/staged-package/${stageId}/reject`}>
                   <button type="submit" class="btn" data-variant="destructive">
                     Reject
                   </button>
@@ -608,26 +608,27 @@ app.get("/staged-package/:stageId", requireAuth(), async (c) => {
   );
 });
 
-app.post("/staged-package/:stageId/approve", async (c) => {
+app.post("/dash/staged-package/:stageId/approve", async (c) => {
   const stageId = c.req.param("stageId");
   const result = await approveStaged(stageId);
-  const to = new URL("/staged-packages", c.req.url);
-  if (!result.success) {
-    to.searchParams.set("error", result.error);
-  }
-  return c.redirect(to);
-});
-app.post("/staged-package/:stageId/reject", async (c) => {
-  const stageId = c.req.param("stageId");
-  const result = await rejectStaged(stageId);
-  const to = new URL("/staged-packages", c.req.url);
+  const to = new URL("/dash/staged-packages", c.req.url);
   if (!result.success) {
     to.searchParams.set("error", result.error);
   }
   return c.redirect(to);
 });
 
-app.get("/login", (c) => {
+app.post("/dash/staged-package/:stageId/reject", async (c) => {
+  const stageId = c.req.param("stageId");
+  const result = await rejectStaged(stageId);
+  const to = new URL("/dash/staged-packages", c.req.url);
+  if (!result.success) {
+    to.searchParams.set("error", result.error);
+  }
+  return c.redirect(to);
+});
+
+app.get("/auth/login", (c) => {
   const atcute = c.get("atcute");
   const url = new URL(c.req.url);
   const returnTo = decodeURIComponent(url.searchParams.get("returnTo") || "");

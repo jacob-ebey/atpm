@@ -107,7 +107,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
                         method="post"
                         action="/oauth/logout"
                       >
-                        <a role="menuitem" href="/staged-packages">
+                        <a role="menuitem" href="/dash/staged-packages">
                           Staged Packages{" "}
                           {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
                         </a>
@@ -120,7 +120,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
                   </DropdownMenu>
                 </div>
               ) : (
-                <a href="/login" class="btn" data-variant="outline">
+                <a href="/auth/login" class="btn" data-variant="outline">
                   Login
                 </a>
               )}
@@ -188,13 +188,13 @@ export async function Layout({ children }: { children?: JSXChild }) {
                     </button>
                   </form>
                 ) : (
-                  <a href="/login" class="btn" data-variant="outline">
+                  <a href="/auth/login" class="btn" data-variant="outline">
                     Login
                   </a>
                 )}
               </div>
             </div>
-            <a href="/staged-packages" class="btn" data-variant="outline">
+            <a href="/dash/staged-packages" class="btn" data-variant="outline">
               Staged Packages {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
             </a>
             <form class="flex-1 sm:flex-0" action="/search">
