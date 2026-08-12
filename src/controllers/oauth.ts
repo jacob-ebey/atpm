@@ -1,8 +1,8 @@
 import { type ActorIdentifier } from "@atcute/lexicons/syntax";
 import { Hono } from "hono";
-import { clearSessionDid, setSessionDid } from "hono-atcute";
 import * as v from "valibot";
 
+import { clearSessionDid, setSessionDid } from "@/lib/atcute";
 import { ReturnToSchema } from "@/lib/return-to";
 
 const app = new Hono<Env>();
@@ -47,9 +47,7 @@ app.post("/login", async (c) => {
 });
 
 app.post("/logout", async (c) => {
-  const atcute = c.get("atcute");
   clearSessionDid(c);
-  await atcute.session?.signOut().catch(() => {});
   return c.redirect(new URL("/", c.req.url));
 });
 

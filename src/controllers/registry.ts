@@ -1,13 +1,12 @@
-import { Client, simpleFetchHandler } from "@atcute/client";
-import { type ActorIdentifier, parseResourceUri } from "@atcute/lexicons";
+import { type ActorIdentifier, type Handle, parseResourceUri } from "@atcute/lexicons";
 import * as TID from "@atcute/tid";
 import type * as npm from "@npm/types";
 import { Context, Hono } from "hono";
+import * as jose from "jose";
 import { v5 as uuid } from "uuid";
 import validatePackageName from "validate-npm-package-name";
 
 import * as s from "@/db/schema";
-import { sign } from "@/lib/sign";
 import {
   ComAtprotoRepoApplyWrites,
   ComAtprotoRepoCreateRecord,
@@ -21,14 +20,16 @@ import {
   DevAtpmAlphaStage as DevAtpmStage,
 } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
-import { readCursor, indexEvent, readStagedPackages } from "@/models/packages";
+import { readCursor, indexEvent, readStagedPackages, readPublishers } from "@/models/packages";
 import { requireCliAuth } from "@/lib/auth";
 import { and, eq } from "drizzle-orm";
+import { AUTH_SESSION_TIMEOUT } from "@/models/cli-auth-session";
 
 const app = new Hono<Env>();
 
 app.get("/-/stage", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
+  const atcute = c.get("atcute");
+
   const url = new URL(c.req.url);
   const packageName = url.searchParams.get("package");
   const page = Number.parseInt(url.searchParams.get("page") ?? "0");
@@ -50,7 +51,7 @@ app.get("/-/stage", requireCliAuth(), async (c) => {
       version: pkg.version,
       tag: Object.keys(pkg.tags)[0],
       createdAt: pkg.createdAt,
-      actor: actor.handle,
+      actor: atcute.session.did,
       actorType: "user",
       access: "public",
       shasum: (pkg.meta as npm.PackumentVersion).dist.shasum,
@@ -59,17 +60,19 @@ app.get("/-/stage", requireCliAuth(), async (c) => {
 });
 
 app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
-  const cliSession = c.get("cliSession");
+  const atcute = c.get("atcute");
   const db = c.get("db");
   const packageParam = c.req.param("package");
   const [scope, name] = packageParam.split("/");
+  const actor = await atcute.actorResolver.resolve(atcute.session.did).catch(() => null);
+
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
-  if (scope.slice(1) !== actor.handle) {
+  if (!actor || scope.slice(1) !== actor.handle) {
     return c.json({ error: "scope does not match actor handle" }, 403);
   }
-
-  const client = new Client({ handler: cliSession });
+  if (atcute.restrictedToPackage && atcute.restrictedToPackage !== name) {
+    return c.json({ error: "scope does not allow this package name" });
+  }
 
   const body = (await c.req.json()) as npm.Packument & {
     _attachments: Record<
@@ -82,9 +85,9 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
     >;
   };
 
-  const existingPackage = await client.call(ComAtprotoRepoGetRecord, {
+  const existingPackage = await atcute.client.call(ComAtprotoRepoGetRecord, {
     params: {
-      repo: cliSession.did,
+      repo: atcute.session.did,
       collection: "dev.atpm.alpha.package",
       rkey: name,
     },
@@ -107,13 +110,13 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
     const input = await base64ToBlob(attachment).catch(() => undefined);
     if (!input) return c.json({ error: "invalid attachment" }, 400);
 
-    const blob = await client
+    const blob = await atcute.client
       .call(ComAtprotoRepoUploadBlob, { input, signal: c.req.raw.signal })
       .catch(() => undefined);
     if (!blob?.ok) return c.json({ error: "failed to upload blob" }, 500);
     const tarballUrl = new URL(actor.pds);
     tarballUrl.pathname = "/xrpc/com.atproto.sync.getBlob";
-    tarballUrl.searchParams.set("did", cliSession.did);
+    tarballUrl.searchParams.set("did", atcute.session.did);
     tarballUrl.searchParams.set("cid", blob.data.blob.ref.$link);
 
     versions.push({
@@ -137,9 +140,9 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
 
   for (const version of versions) {
     const rkey = TID.now();
-    const res = await client.call(ComAtprotoRepoCreateRecord, {
+    const res = await atcute.client.call(ComAtprotoRepoCreateRecord, {
       input: {
-        repo: cliSession.did,
+        repo: atcute.session.did,
         collection: "dev.atpm.alpha.stage",
         rkey,
         record: version,
@@ -148,7 +151,7 @@ app.post("/-/stage/package/:package", requireCliAuth(), async (c) => {
     if (!res.ok) return c.json({ error: res.data.message }, res.status as 500);
     created.push({
       createdAt: version.createdAt,
-      did: cliSession.did,
+      did: atcute.session.did,
       rkey,
     });
   }
@@ -174,11 +177,9 @@ app.get("/-/stage/:stageId/tarball", requireCliAuth(), async (c) => {
 });
 
 app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
-  const cliSession = c.get("cliSession");
+  const atcute = c.get("atcute");
   const db = c.get("db");
   const stageId = c.req.param("stageId");
-  const client = new Client({ handler: cliSession });
 
   const staged = await readStagedPackages();
   const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
@@ -191,15 +192,19 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
     );
   }
 
+  const actor = await atcute.actorResolver.resolve(atcute.session.did).catch(() => null);
   const [scope, name] = pkg.name.split("/");
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
-  if (scope.slice(1) !== actor.handle) {
+  if (!actor || scope.slice(1) !== actor.handle) {
     return c.json({ error: "scope does not match actor handle" }, 403);
   }
+  if (atcute.restrictedToPackage && atcute.restrictedToPackage !== name) {
+    return c.json({ error: "scope does not allow this package name" }, 403);
+  }
 
-  const existingPackage = await client.call(ComAtprotoRepoGetRecord, {
+  const existingPackage = await atcute.client.call(ComAtprotoRepoGetRecord, {
     params: {
-      repo: cliSession.did,
+      repo: atcute.session.did,
       collection: "dev.atpm.alpha.package",
       rkey: name,
     },
@@ -235,9 +240,9 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
 
   const rkey = parseResourceUri(pkg.uri).rkey!;
 
-  const updated = await client.call(ComAtprotoRepoApplyWrites, {
+  const updated = await atcute.client.call(ComAtprotoRepoApplyWrites, {
     input: {
-      repo: cliSession.did,
+      repo: atcute.session.did,
       writes: [
         existingPackage.ok
           ? {
@@ -268,7 +273,7 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
     .insert(s.pkg)
     .values({
       createdAt: record.createdAt,
-      did: cliSession.did,
+      did: atcute.session.did,
       rkey: name,
     })
     .onConflictDoUpdate({
@@ -285,7 +290,8 @@ app.post("/-/stage/:stageId/approve", requireCliAuth(), async (c) => {
 });
 
 app.get("/-/stage/:stageId", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
+  const atcute = c.get("atcute");
+
   const stageId = c.req.param("stageId");
 
   const staged = await readStagedPackages();
@@ -298,13 +304,14 @@ app.get("/-/stage/:stageId", requireCliAuth(), async (c) => {
       404,
     );
   }
+
   return c.json({
     id: uuid(pkg.uri + `/${pkg.cid}`, uuid.URL),
     packageName: pkg.name,
     version: pkg.version,
     tag: Object.keys(pkg.tags)[0],
     createdAt: pkg.createdAt,
-    actor: actor.handle,
+    actor: atcute.session.did,
     actorType: "user",
     access: "public",
     shasum: (pkg.meta as npm.PackumentVersion).dist.shasum,
@@ -312,9 +319,7 @@ app.get("/-/stage/:stageId", requireCliAuth(), async (c) => {
 });
 
 app.delete("/-/stage/:stageId", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
-  const cliSession = c.get("cliSession");
-  const client = new Client({ handler: cliSession });
+  const atcute = c.get("atcute");
   const stageId = c.req.param("stageId");
 
   const staged = await readStagedPackages();
@@ -337,9 +342,9 @@ app.delete("/-/stage/:stageId", requireCliAuth(), async (c) => {
       404,
     );
   }
-  const deleted = await client.call(ComAtprotoRepoDeleteRecord, {
+  const deleted = await atcute.client.call(ComAtprotoRepoDeleteRecord, {
     input: {
-      repo: actor.did,
+      repo: atcute.session.did,
       collection: uri.collection,
       rkey: uri.rkey,
     },
@@ -382,14 +387,81 @@ app.get("/-/v1/done", async (c) => {
   if (!oauthSession) return c.json({ error: "no session" }, 404);
   if (!result.secret) return c.json({ error: "no secret" }, 404);
 
-  const token = await sign(sessionId + "." + result.secret, c.env.SESSION_SECRET);
-  return c.json({ token }, 200);
+  const token = await new jose.SignJWT()
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setIssuer(url.origin)
+    .setSubject(sessionId)
+    .setAudience(result.secret)
+    .setExpirationTime(AUTH_SESSION_TIMEOUT + "ms")
+    .sign(new TextEncoder().encode(c.env.SESSION_SECRET));
+
+  return c.json({ token: `cli${token}` }, 200);
 });
 
-// app.get("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
-//   console.log(c.req.url, Object.fromEntries(c.req.raw.headers));
-//   return c.json({ error: "not implemented" }, 500);
-// });
+app.post("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
+  const atcute = c.get("atcute");
+  const authorization = c.req.header("Authorization");
+  if (!authorization) return c.json({ error: "no authorization header" }, 401);
+
+  const packageName = c.req.param("packageName");
+  const isValid = packageName.startsWith("@") && packageName.includes("/");
+  if (!packageName || !validatePackageName(packageName).validForNewPackages || !isValid) {
+    return c.json({ error: "invalid package name" }, 400);
+  }
+  const [handle, rkey] = packageName.slice(1).split("/");
+  const actor = await atcute.actorResolver.resolve(handle as Handle).catch(() => null);
+  if (!actor) return c.json({ error: "actor not found" }, 404);
+
+  const publishers = await readPublishers(actor.did, rkey);
+  console.log({ did: actor.did, rkey, publishers });
+  if (!publishers?.github) return c.json({ error: "no publishers" }, 404);
+
+  const url = new URL(c.req.url);
+  const jwt = authorization.replace(/^Bearer\s+/, "");
+
+  const verified = await jose
+    .jwtVerify(
+      jwt,
+      jose.createRemoteJWKSet(
+        new URL("https://token.actions.githubusercontent.com/.well-known/jwks"),
+      ),
+      {
+        issuer: "https://token.actions.githubusercontent.com",
+        // audience: `npm:${url.hostname}`,
+      },
+    )
+    .catch((err) => {
+      console.error(err, (err as any).claim, (err as any).reason);
+      return false as const;
+    });
+
+  if (!verified) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  if (
+    verified.payload.repository_owner !== publishers.github.username ||
+    verified.payload.repository !==
+      `${publishers.github.username}/${publishers.github.repository}` ||
+    !(verified.payload.job_workflow_ref as string)?.startsWith?.(
+      `${publishers.github.username}/${publishers.github.repository}/.github/workflows/${publishers.github.workflow}@`,
+    )
+  ) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const token = await new jose.SignJWT()
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setIssuer(url.origin)
+    .setSubject(actor.did)
+    .setAudience(rkey)
+    .setExpirationTime("5m")
+    .sign(new TextEncoder().encode(c.env.SESSION_SECRET));
+
+  return c.json({ token: `ci${token}` }, 201);
+});
 
 app.get("/-/cli/:sessionId", async (c) => {
   const atcute = c.get("atcute");
@@ -412,8 +484,15 @@ app.get("/-/index", async (c) => {
 });
 
 app.post("/-/index", async (c) => {
+  if (c.req.header("Authorization") !== `Bearer ${c.env.INDEXER_SECRET}`) {
+    return c.json({ error: "invalid authorization" }, 401);
+  }
   const result = await indexEvent(await c.req.json());
   return c.json(result, result.success ? 200 : 500);
+});
+
+app.get("/-/package/:packageName/visibility", (c) => {
+  return c.json({ public: true });
 });
 
 app.get("/:package", async (c) => {
@@ -439,9 +518,7 @@ app.get("/:package", async (c) => {
     return proxyRequest(c);
   }
 
-  const client = new Client({ handler: simpleFetchHandler({ service: resolved.pds }) });
-
-  const recordResponse = await client.get("com.atproto.repo.getRecord", {
+  const recordResponse = await atcute.publicClient.get("com.atproto.repo.getRecord", {
     params: {
       repo: resolved.did,
       collection: "dev.atpm.alpha.package",
@@ -480,18 +557,20 @@ app.get("/:package", async (c) => {
 });
 
 app.put("/:package", requireCliAuth(), async (c) => {
-  const actor = c.get("actor");
-  const cliSession = c.get("cliSession");
+  const atcute = c.get("atcute");
   const db = c.get("db");
   const packageParam = c.req.param("package");
   const [scope, name] = packageParam.split("/");
   if (!scope?.startsWith("@")) return c.json({ error: "package name must include @ scope" }, 400);
-
-  if (scope.slice(1) !== actor.handle) {
-    return c.json({ error: "scope does not match actor handle" }, 403);
+  if (atcute.restrictedToPackage && atcute.restrictedToPackage !== name) {
+    return c.json({ error: "scope does not allow this package name" }, 403);
   }
 
-  const client = new Client({ handler: cliSession });
+  const actor = await atcute.actorResolver.resolve(atcute.session.did).catch(() => null);
+
+  if (!actor || scope.slice(1) !== actor.handle) {
+    return c.json({ error: "scope does not match actor handle" }, 403);
+  }
 
   const body = (await c.req.json()) as npm.Packument & {
     _attachments: Record<
@@ -504,9 +583,9 @@ app.put("/:package", requireCliAuth(), async (c) => {
     >;
   };
 
-  const existingPackage = await client.call(ComAtprotoRepoGetRecord, {
+  const existingPackage = await atcute.client.call(ComAtprotoRepoGetRecord, {
     params: {
-      repo: cliSession.did,
+      repo: atcute.session.did,
       collection: "dev.atpm.alpha.package",
       rkey: name,
     },
@@ -528,13 +607,13 @@ app.put("/:package", requireCliAuth(), async (c) => {
     const input = await base64ToBlob(attachment).catch(() => undefined);
     if (!input) return c.json({ error: "invalid attachment" }, 400);
 
-    const blob = await client
+    const blob = await atcute.client
       .call(ComAtprotoRepoUploadBlob, { input, signal: c.req.raw.signal })
       .catch(() => undefined);
     if (!blob?.ok) return c.json({ error: "failed to upload blob" }, 500);
     const tarballUrl = new URL(actor.pds);
     tarballUrl.pathname = "/xrpc/com.atproto.sync.getBlob";
-    tarballUrl.searchParams.set("did", cliSession.did);
+    tarballUrl.searchParams.set("did", atcute.session.did);
     tarballUrl.searchParams.set("cid", blob.data.blob.ref.$link);
 
     versions.unshift({
@@ -564,9 +643,9 @@ app.put("/:package", requireCliAuth(), async (c) => {
     versions,
   };
 
-  const updated = await client.call(ComAtprotoRepoPutRecord, {
+  const updated = await atcute.client.call(ComAtprotoRepoPutRecord, {
     input: {
-      repo: cliSession.did,
+      repo: atcute.session.did,
       collection: "dev.atpm.alpha.package",
       rkey: name,
       record,
@@ -580,7 +659,7 @@ app.put("/:package", requireCliAuth(), async (c) => {
     .insert(s.pkg)
     .values({
       createdAt: record.createdAt,
-      did: cliSession.did,
+      did: atcute.session.did,
       rkey: name,
     })
     .onConflictDoUpdate({
@@ -594,10 +673,10 @@ app.put("/:package", requireCliAuth(), async (c) => {
   return c.json({ success: true });
 });
 
-// app.all("*", (c) => {
-//   console.log(c.req.method, c.req.url);
-//   return c.json({ error: "not found" }, 404);
-// });
+app.all("*", (c) => {
+  console.log(c.req.method, c.req.url);
+  return c.json({ error: "not found" }, 404);
+});
 
 function proxyRequest(c: Context, body?: BodyInit | null) {
   const url = new URL(c.req.url);

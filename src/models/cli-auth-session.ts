@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 type State = "pending" | "timed-out" | "done";
 
-const TIMEOUT = 5 * 60 * 1000;
+export const AUTH_SESSION_TIMEOUT = 5 * 60 * 1000;
 
 export class CliAuthSession extends DurableObject {
   #did: string | undefined;
@@ -32,7 +32,7 @@ export class CliAuthSession extends DurableObject {
       if (typeof currentAlarm !== "number") {
         await this.ctx.storage.transaction(async () => {
           await Promise.all([
-            this.ctx.storage.setAlarm(Date.now() + TIMEOUT),
+            this.ctx.storage.setAlarm(Date.now() + AUTH_SESSION_TIMEOUT),
             this.ctx.storage.put("state", "pending"),
           ]);
         });
@@ -65,7 +65,7 @@ export class CliAuthSession extends DurableObject {
 
     await this.ctx.storage.transaction(async () => {
       await Promise.all([
-        this.ctx.storage.setAlarm(Date.now() + TIMEOUT),
+        this.ctx.storage.setAlarm(Date.now() + AUTH_SESSION_TIMEOUT),
         this.ctx.storage.put("secret", secret),
         this.ctx.storage.put("state", "done"),
         this.ctx.storage.put("did", did),

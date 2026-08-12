@@ -3,7 +3,7 @@
   "name": "atpm",
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "./src/server.ts",
+  "main": "./src/server.tsx",
   "cache": {
     "enabled": true,
   },

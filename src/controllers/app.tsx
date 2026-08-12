@@ -615,36 +615,6 @@ app.get("/login", (c) => {
   );
 });
 
-app.all("*", (c) => {
-  c.status(404);
-  return c.render(
-    <html>
-      <Head>
-        <title>404 Not Found</title>
-      </Head>
-      <Body>
-        <Layout>
-          <main>
-            <section class="empty">
-              <header>
-                <h3>404 Not Found</h3>
-                <p>We couldn't find the page you're looking for.</p>
-              </header>
-              <footer>
-                <div class="flex gap-2">
-                  <a href="/" class="btn">
-                    Go Home
-                  </a>
-                </div>
-              </footer>
-            </section>
-          </main>
-        </Layout>
-      </Body>
-    </html>,
-  );
-});
-
 function parseRepository(url: string) {
   return url.replace(/^\w+\+http/, "http").replace(/\.git$/, "");
 }

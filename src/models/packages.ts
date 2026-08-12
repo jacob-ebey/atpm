@@ -1,6 +1,6 @@
 import { ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords } from "@atcute/atproto";
 import { Client, simpleFetchHandler } from "@atcute/client";
-import { is, type Did, type ResourceUri } from "@atcute/lexicons";
+import { is, safeParse, type Did, type ResourceUri } from "@atcute/lexicons";
 import { and, count, eq, like, max, sql } from "drizzle-orm";
 import { getContext } from "hono/context-storage";
 import * as v from "valibot";
@@ -9,6 +9,7 @@ import * as s from "@/db/schema";
 import {
   DevAtpmAlphaPackage as DevAtpmPackage,
   DevAtpmAlphaStage as DevAtpmStage,
+  DevAtpmAlphaTrustPublisher as DevAtpmTrustPublisher,
 } from "@/lexicons";
 import { invariant } from "@/lib/invariant";
 import type { ResolvedActor } from "@atcute/identity-resolver";
@@ -278,4 +279,31 @@ export async function indexEvent(
   }
 
   return { success: true };
+}
+
+export async function readPublishers(repo: string, rkey: string) {
+  const c = getContext();
+  const atcute = c.get("atcute");
+
+  const actor = await atcute.actorResolver.resolve(repo as Did).catch(() => null);
+  if (!actor) return null;
+
+  const client = new Client({
+    handler: simpleFetchHandler({ service: actor.pds }),
+  });
+
+  const record = await client.call(ComAtprotoRepoGetRecord, {
+    params: {
+      repo: repo as Did,
+      collection: "dev.atpm.alpha.trustPublisher",
+      rkey,
+    },
+  });
+
+  if (!record.ok) {
+    console.error(record.data);
+    return null;
+  }
+
+  return record.data.value;
 }

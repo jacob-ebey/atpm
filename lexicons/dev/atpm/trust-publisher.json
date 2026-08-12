@@ -1,0 +1,41 @@
+{
+  "$type": "com.atproto.lexicon.schema",
+  "defs": {
+    "main": {
+      "key": "any",
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": ["createdAt"],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "github": {
+            "type": "ref",
+            "ref": "#github",
+            "description": "Trust config for GitHub Actions. Other providers (e.g. gitlab, circleci) will add their own config refs alongside this one."
+          }
+        }
+      }
+    },
+    "github": {
+      "type": "object",
+      "required": ["username", "repository", "workflow"],
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "workflow": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "id": "dev.atpm.alpha.trustPublisher",
+  "lexicon": 1
+}

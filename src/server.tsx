@@ -1,17 +1,18 @@
 import { scope } from "@atcute/oauth-node-client";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
-import { atcute } from "hono-atcute";
-import { createStores } from "hono-atcute/cloudflare";
 
 import appController from "@/controllers/app";
 import registry from "@/controllers/registry";
 import oauth from "@/controllers/oauth";
 import { database } from "@/db/middleware";
+import { atcute, createStores } from "@/lib/atcute";
 import { htmxRedirects } from "@/lib/htmx";
 import { srvJsxRenderer } from "@/lib/renderer";
+import { Body, Head } from "./components/document";
+import { Layout } from "./containers/layout";
 
-export { AtprotoStore } from "hono-atcute/cloudflare";
+export { AtprotoStore } from "@/lib/atcute";
 export { CliAuthSession } from "@/models/cli-auth-session";
 
 declare global {
@@ -46,14 +47,50 @@ app.use(
       scope.blob({ accept: ["application/octet-stream"] }),
     ],
     stores: (c) => createStores(c.env.ATPROTO_STORE),
+    fetch(input, init) {
+      return fetch(input, {
+        ...init,
+        cache: "no-cache",
+      });
+    },
   }),
   database(),
   srvJsxRenderer(),
   htmxRedirects(),
 );
 
-app.route("/registry", registry);
 app.route("/oauth", oauth);
+app.route("/registry", registry);
+app.route("/", registry);
 app.route("/", appController);
+app.notFound((c) => {
+  c.status(404);
+  return c.render(
+    <html>
+      <Head>
+        <title>404 Not Found</title>
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="empty">
+              <header>
+                <h3>404 Not Found</h3>
+                <p>We couldn't find the page you're looking for.</p>
+              </header>
+              <footer>
+                <div class="flex gap-2">
+                  <a href="/" class="btn">
+                    Go Home
+                  </a>
+                </div>
+              </footer>
+            </section>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
 
 export default app;

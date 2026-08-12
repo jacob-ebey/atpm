@@ -8,6 +8,7 @@ catalog:
   "@atcute/cid": 2.4.2
   "@atcute/client": 5.1.1
   "@atcute/identity-resolver": 2.0.1
+  "@atcute/identity-resolver-node": 2.0.1
   "@atcute/jetstream": 2.0.2
   "@atcute/lex-cli": 3.2.1
   "@atcute/lexicons": 2.0.3
@@ -25,9 +26,9 @@ catalog:
   drizzle-kit: 1.0.0-rc.4
   drizzle-orm: 1.0.0-rc.4
   hono: 4.13.0
-  hono-atcute: 0.0.10
   htmx.org: 4.0.0-beta6
   invokers-polyfill: 1.0.3
+  jose: 6.2.8
   marked: 18.0.9
   package-json-validator: 1.6.0
   srv-jsx: 0.0.12

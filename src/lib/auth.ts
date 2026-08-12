@@ -1,13 +1,15 @@
-import type { ResolvedActor } from "@atcute/identity-resolver";
+import type { ActorResolver } from "@atcute/identity-resolver";
 import type { Did } from "@atcute/lexicons";
-import type { OAuthSession } from "@atcute/oauth-node-client";
+import type { OAuthClient, OAuthSession } from "@atcute/oauth-node-client";
 import type { MiddlewareHandler } from "hono";
+import * as jose from "jose";
 
-import { validate } from "@/lib/sign";
+import { Client } from "@atcute/client";
+import { isDid } from "@atcute/lexicons/syntax";
 
 export const requireAuth = (): MiddlewareHandler => async (c, next) => {
   const atcute = c.get("atcute");
-  if (!atcute.session) {
+  if (!atcute.authenticated) {
     const url = new URL(c.req.url);
     return c.redirect(new URL(`/?login&returnTo=${encodeURI(url.pathname)}`, c.req.url));
   }
@@ -18,29 +20,89 @@ export const requireCliAuth =
   (): MiddlewareHandler<{
     Bindings: Cloudflare.Env;
     Variables: {
-      actor: ResolvedActor;
-      cliSession: OAuthSession;
+      atcute: {
+        authenticated: true;
+        actorResolver: ActorResolver;
+        client: Client;
+        oauth: OAuthClient;
+        publicClient: Client;
+        session: OAuthSession;
+        restrictedToPackage?: string;
+      };
     };
   }> =>
   async (c, next) => {
-    const authorization = c.req.header("Authorization")?.replace(/^Bearer /, "");
-    if (!authorization) return c.json({ error: 'missing "Bearer" header.' }, 401);
-    const validated = await validate(authorization, c.env.SESSION_SECRET);
-    if (!validated.ok) return c.json({ error: "invalid authorization" }, 401);
-    const [sessionId, secret] = validated.value.split(".");
-    if (!sessionId || !secret) return c.json({ error: "invalid authorization" }, 401);
-    const session = c.env.CLI_AUTH_SESSION.getByName(sessionId);
-    const result = await session.poll();
-    if (result.state !== "done" || !result.secret || !result.did)
-      return c.json({ error: "invalid session" }, 401);
-
     const atcute = c.get("atcute");
-    const cliSession = await atcute.oauth.restore(result.did as Did).catch(() => undefined);
-    if (!cliSession) return c.json({ error: "invalid atproto session" }, 401);
-    const actor = await atcute.actorResolver.resolve(cliSession.did).catch(() => undefined);
-    if (!actor?.pds) return c.json({ error: "actor not found" }, 401);
-    c.set("actor", actor);
-    c.set("cliSession", cliSession);
+
+    const url = new URL(c.req.url);
+    const authorization = c.req.header("Authorization")?.replace(/^Bearer\s+/, "");
+    if (!authorization) return c.json({ error: 'missing "Bearer" header.' }, 401);
+
+    let did: string | undefined;
+    let restrictedToPackage: string | undefined;
+    if (authorization.startsWith("cli")) {
+      console.log("CLI");
+      const token = authorization.slice(4);
+      const verified = await jose
+        .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET), {
+          issuer: url.origin,
+        })
+        .catch(() => false as const);
+      if (!verified) return c.json({ error: "invalid authorization" }, 401);
+      const sessionId = verified.payload.sub;
+      const secret = verified.payload.aud;
+
+      if (!sessionId || !secret) return c.json({ error: "invalid authorization" }, 401);
+
+      const res = await c.env.CLI_AUTH_SESSION.getByName(sessionId).poll();
+      if (res.state !== "done" || res.secret !== secret || !res.did)
+        return c.json({ error: "invalid session" }, 401);
+      did = res.did;
+    } else if (authorization.startsWith("ci")) {
+      const token = authorization.slice(3);
+      console.log("CI");
+      const verified = await jose
+        .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET))
+        .catch((e) => {
+          console.error("jwtVerify error", e);
+          return false as const;
+        });
+      if (!verified) return c.json({ error: "invalid authorization" }, 401);
+      const sub = verified.payload.sub;
+      if (!isDid(sub) || (verified.payload.aud && typeof verified.payload.aud !== "string")) {
+        console.log({
+          verified,
+        });
+        return c.json({ error: "invalid authorization" }, 401);
+      }
+      did = sub;
+      restrictedToPackage = verified.payload.aud as string;
+    } else {
+      console.log("INVALID TOKEN", { [authorization[0]]: 0, [authorization[1]]: 1 });
+      return c.json({ error: "invalid authorization" }, 401);
+    }
+
+    if (!did) {
+      console.log("NO DID");
+      return c.json({ error: "invalid authorization" }, 401);
+    }
+
+    const atcuteSession = await atcute.oauth.restore(did as Did).catch(() => undefined);
+    if (!atcuteSession) {
+      console.log("NO ATCOUTE SESSION");
+      return c.json({ error: "invalid atproto session" }, 401);
+    }
+    const client = new Client({ handler: atcuteSession });
+
+    c.set("atcute", {
+      authenticated: true,
+      actorResolver: atcute.actorResolver,
+      client,
+      oauth: atcute.oauth,
+      publicClient: atcute.publicClient,
+      session: atcuteSession,
+      restrictedToPackage,
+    });
 
     await next();
   };
