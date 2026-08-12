@@ -407,18 +407,18 @@ app.get("/package/:did/:rkey", async (c) => {
                       {provenance.repository ? (
                         <div class="text-sm break-all">
                           <a
-                            href={provenance.repository}
+                            href={
+                              (provenance.repository.endsWith("/")
+                                ? provenance.repository
+                                : provenance.repository + "/") +
+                              (provenance.gitCommit ? `commit/${provenance.gitCommit}` : "")
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             class="underline"
                           >
-                            {provenance.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                            commit {provenance.gitCommit.slice(0, 12)}
                           </a>
-                        </div>
-                      ) : null}
-                      {provenance.gitCommit ? (
-                        <div class="text-sm break-all">
-                          commit {provenance.gitCommit.slice(0, 12)}
                         </div>
                       ) : null}
                       {attestations?.url ? (
@@ -987,7 +987,7 @@ app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
                             rel="noopener noreferrer"
                             class="underline"
                           >
-                            {provenance.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                            commit {provenance.gitCommit.slice(0, 12)}
                           </a>
                         </div>
                       ) : null}
