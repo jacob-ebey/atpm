@@ -58,7 +58,6 @@ export const requireCliAuth =
     let did: string | undefined;
     let restrictedToPackage: string | undefined;
     if (authorization.startsWith("cli")) {
-      console.log("CLI");
       const token = authorization.slice(3);
       const verified = await jose
         .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET), {
@@ -78,7 +77,6 @@ export const requireCliAuth =
       did = res.did;
     } else if (authorization.startsWith("ci")) {
       const token = authorization.slice(2);
-      console.log("CI");
       const verified = await jose
         .jwtVerify(token, new TextEncoder().encode(c.env.SESSION_SECRET), {
           ...claims,
@@ -91,26 +89,20 @@ export const requireCliAuth =
       if (!verified) return c.json({ error: "invalid authorization" }, 401);
       const sub = verified.payload.sub;
       if (!isDid(sub) || (verified.payload.aud && typeof verified.payload.aud !== "string")) {
-        console.log({
-          verified,
-        });
         return c.json({ error: "invalid authorization" }, 401);
       }
       did = sub;
       restrictedToPackage = verified.payload.aud as string;
     } else {
-      console.log("INVALID TOKEN", { [authorization[0]]: 0, [authorization[1]]: 1 });
       return c.json({ error: "invalid authorization" }, 401);
     }
 
     if (!did) {
-      console.log("NO DID");
       return c.json({ error: "invalid authorization" }, 401);
     }
 
     const atcuteSession = await atcute.oauth.restore(did as Did).catch(() => undefined);
     if (!atcuteSession) {
-      console.log("NO ATCOUTE SESSION");
       return c.json({ error: "invalid atproto session" }, 401);
     }
     const client = new Client({ handler: atcuteSession });

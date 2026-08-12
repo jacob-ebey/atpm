@@ -317,7 +317,6 @@ app.post("/-/npm/v1/oidc/token/exchange/package/:packageName", async (c) => {
   if (!actor) return c.json({ error: "actor not found" }, 404);
 
   const publishers = await readPublishers(actor.did, rkey);
-  console.log({ did: actor.did, rkey, publishers });
   if (!publishers?.github) return c.json({ error: "no publishers" }, 404);
 
   const url = new URL(c.req.url);
