@@ -2,6 +2,7 @@ import type { Did } from "@atcute/lexicons";
 import type * as npm from "@npm/types";
 import { Hono } from "hono";
 import { marked } from "marked";
+import { v5 as uuid } from "uuid";
 import * as v from "valibot";
 
 import { Body, Head } from "@/components/document";
@@ -10,9 +11,11 @@ import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
 import { ReturnToSchema } from "@/lib/return-to";
 import { timeAgo } from "@/lib/time";
 import {
+  approveStaged,
   readPackage,
   readRecentPackages,
   readStagedPackages,
+  rejectStaged,
   searchPackages,
 } from "@/models/packages";
 import { requireAuth } from "@/lib/auth";
@@ -24,7 +27,7 @@ app.get("/", async (c) => {
   const atcute = c.get("atcute");
   const recentPackages = await readRecentPackages();
 
-  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -131,7 +134,7 @@ app.get("/search", async (c) => {
 
   if (!packages?.length) c.status(404);
 
-  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -250,7 +253,7 @@ app.get("/package/:did/:rkey", async (c) => {
     size = `${(version.blob.size / 1024).toFixed(2)} kB`;
   }
 
-  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -448,69 +451,63 @@ app.get("/staged-packages", requireAuth(), async (c) => {
                   </p>
                 </>
               ) : (
-                staged.map(async (staged) => (
-                  <div class="card">
-                    <header>
-                      <h3>{staged.name}</h3>
-                      <p class="flex gap-3">
-                        <span>{timeAgo(new Date(staged.createdAt).getTime())}</span>
-                      </p>
-                    </header>
-                    <section class="flex flex-col gap-6 sm:flex-row">
-                      <div class="space-y-2">
-                        <h4 class="text-sm leading-none font-semibold">Date</h4>
-                        <div class="text-sm">
-                          <time datetime={staged.createdAt}>
-                            {new Intl.DateTimeFormat("en-US", {
-                              timeZone: "UTC",
-                              dateStyle: "long",
-                              timeStyle: "long",
-                            }).format(new Date(staged.createdAt))}
-                          </time>
+                staged.map(async (staged) => {
+                  const stageId = uuid(staged.uri + `/${staged.cid}`, uuid.URL);
+
+                  return (
+                    <div class="card">
+                      <header>
+                        <h3>{staged.name}</h3>
+                        <p class="flex gap-3">
+                          <span>{timeAgo(new Date(staged.createdAt).getTime())}</span>
+                        </p>
+                      </header>
+                      <section class="flex flex-col gap-6 sm:flex-row">
+                        <div class="space-y-2">
+                          <h4 class="text-sm leading-none font-semibold">Date</h4>
+                          <div class="text-sm">
+                            <time datetime={staged.createdAt}>
+                              {new Intl.DateTimeFormat("en-US", {
+                                timeZone: "UTC",
+                                dateStyle: "long",
+                                timeStyle: "long",
+                              }).format(new Date(staged.createdAt))}
+                            </time>
+                          </div>
                         </div>
-                      </div>
-                      <div class="space-y-2 flex-1">
-                        <h4 class="text-sm leading-none font-semibold">URI</h4>
-                        <div class="text-sm break-all">{staged.uri}</div>
-                      </div>
-                      <div class="space-y-2 flex-1">
-                        <h4 class="text-sm leading-none font-semibold">Shasum</h4>
-                        <div class="text-sm break-all">
-                          {(staged.meta as npm.PackumentVersion).dist.shasum}
+                        <div class="space-y-2 flex-1">
+                          <h4 class="text-sm leading-none font-semibold">ID</h4>
+                          <div class="text-sm break-all">{stageId}</div>
                         </div>
-                      </div>
-                    </section>
-                    <footer class="flex gap-2">
-                      <button
-                        type="button"
-                        class="btn"
-                        name="_action"
-                        value="approve"
-                        onclick={() => {
-                          "use client";
-                          console.log("Approve");
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <a
-                        class="btn"
-                        data-variant="secondary"
-                        href={`/staged-package/${staged.uri.replace(/^at:\/\//, "").replace(/\/dev\.atpm\.alpha\.stage/, "")}`}
-                      >
-                        Review
-                      </a>
-                      <form
-                        method="post"
-                        action={`/staged-package/${staged.uri.replace(/^at:\/\//, "").replace(/\/dev\.atpm\.alpha\.stage/, "")}/reject`}
-                      >
-                        <button type="submit" class="btn" data-variant="destructive">
-                          Reject
-                        </button>
-                      </form>
-                    </footer>
-                  </div>
-                ))
+                        <div class="space-y-2 flex-1">
+                          <h4 class="text-sm leading-none font-semibold">URI</h4>
+                          <div class="text-sm break-all">{staged.uri}</div>
+                        </div>
+                        <div class="space-y-2 flex-1">
+                          <h4 class="text-sm leading-none font-semibold">Shasum</h4>
+                          <div class="text-sm break-all">
+                            {(staged.meta as npm.PackumentVersion).dist.shasum}
+                          </div>
+                        </div>
+                      </section>
+                      <footer class="flex gap-2">
+                        <form method="post" action={`/staged-package/${stageId}/approve`}>
+                          <button type="submit" class="btn">
+                            Approve
+                          </button>
+                        </form>
+                        <a class="btn" data-variant="secondary" href={`/staged-package/${stageId}`}>
+                          Review
+                        </a>
+                        <form method="post" action={`/staged-package/${stageId}/reject`}>
+                          <button type="submit" class="btn" data-variant="destructive">
+                            Reject
+                          </button>
+                        </form>
+                      </footer>
+                    </div>
+                  );
+                })
               )}
             </section>
           </main>
@@ -518,6 +515,25 @@ app.get("/staged-packages", requireAuth(), async (c) => {
       </Body>
     </html>,
   );
+});
+
+app.post("/staged-package/:stageId/approve", async (c) => {
+  const stageId = c.req.param("stageId");
+  const result = await approveStaged(stageId);
+  const to = new URL("/staged-packages", c.req.url);
+  if (!result.success) {
+    to.searchParams.set("error", result.error);
+  }
+  return c.redirect(to);
+});
+app.post("/staged-package/:stageId/reject", async (c) => {
+  const stageId = c.req.param("stageId");
+  const result = await rejectStaged(stageId);
+  const to = new URL("/staged-packages", c.req.url);
+  if (!result.success) {
+    to.searchParams.set("error", result.error);
+  }
+  return c.redirect(to);
 });
 
 app.get("/login", (c) => {
