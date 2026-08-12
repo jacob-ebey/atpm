@@ -1,4 +1,4 @@
-import type { Did } from "@atcute/lexicons";
+import { parseResourceUri, type Did } from "@atcute/lexicons";
 import type * as npm from "@npm/types";
 import { Hono } from "hono";
 import { marked } from "marked";
@@ -12,6 +12,9 @@ import { ReturnToSchema } from "@/lib/return-to";
 import { timeAgo } from "@/lib/time";
 import {
   approveStaged,
+  createOrUpdatePublisher,
+  deletePublisher,
+  readAllPublishers,
   readPackage,
   readRecentPackages,
   readStagedPackages,
@@ -425,6 +428,295 @@ app.get("/package/:did/:rkey", async (c) => {
   );
 });
 
+app.get("/dash/publishers", requireAuth(), async (c) => {
+  const atcute = c.get("atcute");
+  const [actor, publishers] = await Promise.all([
+    atcute.actorResolver.resolve(atcute.session.did),
+    readAllPublishers(),
+  ]);
+
+  const buttons = (
+    <div class="mb-6 flex gap-2">
+      <button
+        type="button"
+        class="btn"
+        data-variant="outline"
+        command="show-modal"
+        commandfor="create-github-approval"
+      >
+        Add github workflow
+      </button>
+    </div>
+  );
+
+  return c.render(
+    <html>
+      <Head>
+        <title>Trusted publishers | ATPM</title>
+        <meta name="description" content="List of staged packages." />
+      </Head>
+      <Body>
+        <Layout>
+          <main>
+            <section class="c-x c-y-s">
+              {!publishers?.length ? (
+                <>
+                  <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                    No trusted publishers
+                  </h1>
+                  {buttons}
+                </>
+              ) : (
+                <>
+                  <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+                    Trusted publishers
+                  </h1>
+                  {buttons}
+                  {publishers.map(async (publisher) => {
+                    if (!publisher.github) return null;
+                    const uri = parseResourceUri(publisher.uri);
+                    return (
+                      <div class="card">
+                        <header>
+                          <h3>
+                            @{actor.handle}/{parseResourceUri(publisher.uri).rkey}
+                          </h3>
+                        </header>
+                        <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Created</h4>
+                            <div class="text-sm">
+                              <time datetime={publisher.createdAt}>
+                                {new Intl.DateTimeFormat("en-US", {
+                                  timeZone: "UTC",
+                                  dateStyle: "long",
+                                  timeStyle: "long",
+                                }).format(new Date(publisher.createdAt))}
+                              </time>
+                            </div>
+                          </div>
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Permissions</h4>
+                            <div class="text-sm break-all">
+                              {[
+                                publisher.allowPublish ? "publish" : false,
+                                publisher.allowStage ? "stage" : false,
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </div>
+                          </div>
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Repository</h4>
+                            <div class="text-sm break-all">
+                              <a
+                                href={`https://github.com/${publisher.github.username}/${publisher.github.repository}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="underline"
+                              >
+                                {publisher.github.username}/{publisher.github.repository}
+                              </a>
+                            </div>
+                          </div>
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Workflow</h4>
+                            <div class="text-sm break-all">{publisher.github.workflow}</div>
+                          </div>
+                        </section>
+                        {uri.rkey ? (
+                          <footer class="flex gap-2">
+                            <form method="post" action={`/dash/publisher/${uri.rkey}/delete`}>
+                              <button type="submit" class="btn" data-variant="destructive">
+                                Delete
+                              </button>
+                            </form>
+                          </footer>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </section>
+          </main>
+        </Layout>
+
+        <dialog
+          id="create-github-approval"
+          class="dialog"
+          aria-labelledby="create-github-approval-title"
+          aria-describedby="create-github-approval-description"
+          closedby="closerequest"
+        >
+          <div class="sm:max-w-sm">
+            <header>
+              <h2 id="create-github-approval-title">Approve GitHub workflow</h2>
+              <p id="create-github-approval-description">
+                Approve a github workflow to either publish or stage packages.
+              </p>
+            </header>
+            <section class="overflow-y-auto">
+              <form
+                class="grid gap-4"
+                id="create-github-approval-form"
+                method="post"
+                action="/dash/publishers/create"
+              >
+                <div class="grid gap-3">
+                  <label class="label" for="create-github-approval-package">
+                    Package Name
+                  </label>
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      id="create-github-approval-package"
+                      name="package"
+                      placeholder="package"
+                      autofocus
+                    />
+                    <span data-align="start">@{actor.handle}/</span>
+                  </div>
+                </div>
+                <div class="grid gap-3">
+                  <label class="label" for="create-github-approval-username">
+                    Username or organization
+                  </label>
+                  <input
+                    class="input"
+                    type="text"
+                    id="create-github-approval-username"
+                    name="username"
+                    placeholder="peduarte"
+                    autofocus
+                  />
+                </div>
+                <div class="grid gap-3">
+                  <label class="label" for="create-github-approval-repository">
+                    Repository
+                  </label>
+                  <input
+                    class="input"
+                    type="text"
+                    id="create-github-approval-repository"
+                    name="repository"
+                    placeholder="package"
+                  />
+                </div>
+                <div role="group" class="field">
+                  <label class="label" for="create-github-approval-workflow">
+                    Workflow
+                  </label>
+                  <input
+                    class="input"
+                    type="text"
+                    id="create-github-approval-workflow"
+                    name="workflow"
+                    placeholder="publish.yaml"
+                  />
+                  <p>
+                    Excluding <code>.github/workflows</code>
+                  </p>
+                </div>
+                <div role="group" class="fieldset">
+                  <div role="group" class="field" data-orientation="horizontal">
+                    <input
+                      type="checkbox"
+                      id="create-github-approval-allowPublish"
+                      name="allowPublish"
+                      class="input"
+                    />
+                    <label for="create-github-approval-allowPublish">Allow publish</label>
+                  </div>
+                  <div role="group" class="field" data-orientation="horizontal">
+                    <input
+                      type="checkbox"
+                      id="create-github-approval-allowStage"
+                      name="allowStage"
+                      class="input"
+                      checked
+                    />
+                    <section>Allow stage</section>
+                  </div>
+                </div>
+              </form>
+            </section>
+            <footer>
+              <button
+                type="button"
+                class="btn"
+                data-variant="outline"
+                command="close"
+                commandfor="create-github-approval"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="create-github-approval-form"
+                class="btn"
+                onclick="this.closest('dialog').close()"
+              >
+                Create approveal
+              </button>
+            </footer>
+            <button
+              type="button"
+              class="btn"
+              data-variant="ghost"
+              data-size="icon-sm"
+              aria-label="Close dialog"
+              command="close"
+              commandfor="create-github-approval"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="lucide lucide-x-icon lucide-x"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </dialog>
+      </Body>
+    </html>,
+  );
+});
+
+app.post("/dash/publishers/create", requireAuth(), async (c) => {
+  const formData = Object.fromEntries(await c.req.formData());
+  const result = await createOrUpdatePublisher(formData as any);
+
+  if (!result.success) {
+    const url = new URL("/dash/publishers", c.req.url);
+    url.searchParams.set("error", result.error);
+    return c.redirect(url);
+  }
+
+  return c.redirect(new URL("/dash/publishers", c.req.url));
+});
+
+app.post("/dash/publisher/:rkey/delete", requireAuth(), async (c) => {
+  const result = await deletePublisher(c.req.param("rkey"));
+
+  if (!result.success) {
+    const url = new URL("/dash/publishers", c.req.url);
+    url.searchParams.set("error", result.error);
+    return c.redirect(url);
+  }
+
+  return c.redirect(new URL("/dash/publishers", c.req.url));
+});
+
 app.get("/dash/staged-packages", requireAuth(), async (c) => {
   const atcute = c.get("atcute");
   invariant(atcute.session);
@@ -470,7 +762,7 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                         </header>
                         <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
                           <div class="space-y-2">
-                            <h4 class="text-sm leading-none font-semibold">Date</h4>
+                            <h4 class="text-sm leading-none font-semibold">Created</h4>
                             <div class="text-sm">
                               <time datetime={pkg.createdAt}>
                                 {new Intl.DateTimeFormat("en-US", {
@@ -555,7 +847,7 @@ app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
             <section class="card mb-6">
               <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
                 <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">Date</h4>
+                  <h4 class="text-sm leading-none font-semibold">Created</h4>
                   <div class="text-sm">
                     <time datetime={pkg.createdAt}>
                       {new Intl.DateTimeFormat("en-US", {

@@ -15,7 +15,7 @@ const LoginSchema = v.object({
   ]),
 });
 
-app.post("/auth/login", async (c) => {
+app.post("/login", async (c) => {
   const atcute = c.get("atcute");
   const formData = Object.fromEntries(await c.req.formData());
   const parsed = v.safeParse(LoginSchema, formData);

@@ -3,6 +3,7 @@ import {
   ComAtprotoRepoDeleteRecord,
   ComAtprotoRepoGetRecord,
   ComAtprotoRepoListRecords,
+  ComAtprotoRepoPutRecord,
 } from "@atcute/atproto";
 import { is, parseResourceUri, safeParse, type Did, type ResourceUri } from "@atcute/lexicons";
 import { and, count, eq, like, max, sql } from "drizzle-orm";
@@ -269,6 +270,40 @@ export async function indexEvent(
   return { success: true };
 }
 
+export async function readAllPublishers() {
+  const c = getContext();
+  const atcute = c.get("atcute");
+
+  invariant(atcute.authenticated);
+
+  const results: (DevAtpmTrustPublisher.Main & { cid: string; uri: ResourceUri })[] = [];
+
+  let cursor: string | undefined;
+  do {
+    const result = await atcute.client.call(ComAtprotoRepoListRecords, {
+      params: {
+        repo: atcute.session.did,
+        collection: "dev.atpm.alpha.trustPublisher",
+        limit: 100,
+        cursor,
+      },
+    });
+    if (!result.ok) {
+      break;
+    }
+    cursor = result.data.cursor;
+    results.push(
+      ...result.data.records.map((record) => ({
+        ...(record.value as DevAtpmTrustPublisher.Main),
+        cid: record.cid,
+        uri: record.uri,
+      })),
+    );
+  } while (cursor);
+
+  return results;
+}
+
 export async function readPublishers(did: Did, rkey: string) {
   const c = getContext();
   const atcute = c.get("atcute");
@@ -293,6 +328,85 @@ export async function readPublishers(did: Did, rkey: string) {
   if (!validated.ok) return null;
 
   return validated.value;
+}
+
+const CheckboxSchema = v.pipe(
+  v.optional(v.union([v.string(), v.boolean()]), false),
+  v.transform((input) => input === "on" || input === "true" || input === true),
+);
+
+export const CreatePublisherSchema = v.object({
+  package: v.string(),
+  username: v.string(),
+  repository: v.string(),
+  workflow: v.string(),
+  allowPublish: CheckboxSchema,
+  allowStage: CheckboxSchema,
+});
+
+export async function createOrUpdatePublisher(
+  input: v.InferInput<typeof CreatePublisherSchema>,
+): Promise<{ success: true } | { success?: false; error: string }> {
+  const c = getContext();
+  const atcute = c.get("atcute");
+  invariant(atcute.authenticated);
+
+  const parsed = v.safeParse(CreatePublisherSchema, input);
+  if (!parsed.success) {
+    const issues = v.flatten(parsed.issues);
+    const subIssue = Object.entries(issues.nested ?? {}).find(([, e]) => e?.[0]);
+    const formatted = subIssue ? `${subIssue[0]}: ${subIssue[1]?.[0] || "unknown error"}` : null;
+    return { success: false, error: issues.root?.[0] || formatted || "invalid input" };
+  }
+
+  const record: DevAtpmTrustPublisher.Main = {
+    $type: "dev.atpm.alpha.trustPublisher",
+    createdAt: new Date().toISOString(),
+    allowPublish: parsed.output.allowPublish,
+    allowStage: parsed.output.allowStage,
+    github: {
+      repository: parsed.output.repository,
+      username: parsed.output.username,
+      workflow: parsed.output.workflow,
+    },
+  };
+
+  const written = await atcute.client.call(ComAtprotoRepoPutRecord, {
+    input: {
+      repo: atcute.session.did,
+      collection: "dev.atpm.alpha.trustPublisher",
+      rkey: parsed.output.package,
+      record,
+    },
+  });
+
+  if (!written.ok) {
+    return { error: written.data.error };
+  }
+
+  return { success: true };
+}
+
+export async function deletePublisher(
+  rkey: string,
+): Promise<{ success: true } | { success?: false; error: string }> {
+  const c = getContext();
+  const atcute = c.get("atcute");
+  invariant(atcute.authenticated);
+
+  const deleted = await atcute.client.call(ComAtprotoRepoDeleteRecord, {
+    input: {
+      repo: atcute.session.did,
+      collection: "dev.atpm.alpha.trustPublisher",
+      rkey,
+    },
+  });
+
+  if (!deleted.ok) {
+    return { error: deleted.data.error };
+  }
+
+  return { success: true };
 }
 
 export async function approveStaged(stageId: string): Promise<

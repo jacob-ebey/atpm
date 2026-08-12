@@ -111,6 +111,9 @@ export async function Layout({ children }: { children?: JSXChild }) {
                           Staged Packages{" "}
                           {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
                         </a>
+                        <a role="menuitem" href="/dash/publishers">
+                          Trusted Publishers
+                        </a>
                         <hr role="separator" />
                         <button type="submit" role="menuitem">
                           Logout

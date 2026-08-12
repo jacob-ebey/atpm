@@ -7,14 +7,29 @@ import * as jose from "jose";
 import { Client } from "@atcute/client";
 import { isDid } from "@atcute/lexicons/syntax";
 
-export const requireAuth = (): MiddlewareHandler => async (c, next) => {
-  const atcute = c.get("atcute");
-  if (!atcute.authenticated) {
-    const url = new URL(c.req.url);
-    return c.redirect(new URL(`/?login&returnTo=${encodeURI(url.pathname)}`, c.req.url));
-  }
-  await next();
-};
+export const requireAuth =
+  (): MiddlewareHandler<{
+    Bindings: Cloudflare.Env;
+    Variables: {
+      atcute: {
+        authenticated: true;
+        actorResolver: ActorResolver;
+        client: Client;
+        oauth: OAuthClient;
+        publicClient: Client;
+        session: OAuthSession;
+        restrictedToPackage?: string;
+      };
+    };
+  }> =>
+  async (c, next) => {
+    const atcute = c.get("atcute");
+    if (!atcute.authenticated) {
+      const url = new URL(c.req.url);
+      return c.redirect(new URL(`/?login&returnTo=${encodeURI(url.pathname)}`, c.req.url));
+    }
+    await next();
+  };
 
 export const requireCliAuth =
   (

@@ -27,8 +27,11 @@ app.use(
   async (c, next) => {
     c.header("Cache-Control", "no-cache");
     await next();
+    if (!c.res.headers.get("Cache-Control")) {
+      c.header("Cache-Control", "no-cache");
+    }
     c.header("Vary", "accept", { append: true });
-    c.header("Vary", "cookie");
+    c.header("Vary", "cookie", { append: true });
   },
   contextStorage(),
   atcute({
@@ -41,7 +44,11 @@ app.use(
     scope: () => [
       scope.rpc({ lxm: ["app.bsky.actor.getProfile"], aud: "*" }),
       scope.repo({
-        collection: ["dev.atpm.alpha.package", "dev.atpm.alpha.stage"],
+        collection: [
+          "dev.atpm.alpha.package",
+          "dev.atpm.alpha.stage",
+          "dev.atpm.alpha.trustPublisher",
+        ],
         action: ["create", "update", "delete"],
       }),
       scope.blob({ accept: ["application/octet-stream"] }),
