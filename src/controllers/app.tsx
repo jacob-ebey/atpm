@@ -8,6 +8,7 @@ import * as v from "valibot";
 import { Body, Head } from "@/components/document";
 import { Layout } from "@/containers/layout";
 import { DevAtpmAlphaPackage as DevAtpmPackage } from "@/lexicons";
+import { provenanceInfo, type ProvenanceAttestation } from "@/lib/provenance";
 import { ReturnToSchema } from "@/lib/return-to";
 import { timeAgo } from "@/lib/time";
 import {
@@ -234,6 +235,10 @@ app.get("/package/:did/:rkey", async (c) => {
 
   const meta = version.meta as npm.PackumentVersion;
 
+  const attestations = (meta.dist as { attestations?: ProvenanceAttestation } | undefined)
+    ?.attestations;
+  const provenance = attestations?.provenance ? provenanceInfo(attestations.provenance) : undefined;
+
   let largestHeader = 6;
   if (meta.readme) {
     await marked
@@ -383,6 +388,53 @@ app.get("/package/:did/:rkey", async (c) => {
                 <hr class="my-8 md:hidden" />
 
                 <aside class="space-y-6">
+                  {provenance ? (
+                    <div class="space-y-2">
+                      <h4 class="text-sm leading-none font-semibold">Provenance</h4>
+                      <div class="flex items-center gap-2">
+                        <span class="badge">verified</span>
+                        {provenance.logIndex != null ? (
+                          <a
+                            href={`https://search.sigstore.dev/?logIndex=${provenance.logIndex}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm underline"
+                          >
+                            transparency log
+                          </a>
+                        ) : null}
+                      </div>
+                      {provenance.repository ? (
+                        <div class="text-sm break-all">
+                          <a
+                            href={provenance.repository}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="underline"
+                          >
+                            {provenance.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                          </a>
+                        </div>
+                      ) : null}
+                      {provenance.gitCommit ? (
+                        <div class="text-sm break-all">
+                          commit {provenance.gitCommit.slice(0, 12)}
+                        </div>
+                      ) : null}
+                      {attestations?.url ? (
+                        <div class="text-sm break-all">
+                          <a
+                            href={attestations.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="underline"
+                          >
+                            attestation
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div class="space-y-2">
                     <h4 class="text-sm leading-none font-semibold">Dependencies</h4>
                     {Object.entries(meta.dependencies ?? {}).length > 0 ? (
@@ -749,6 +801,13 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                   </h1>
                   {staged.map(async (pkg) => {
                     const stageId = uuid(pkg.uri + `/${pkg.cid}`, uuid.URL);
+                    const meta = pkg.meta as npm.PackumentVersion;
+                    const attestations = (
+                      meta.dist as { attestations?: ProvenanceAttestation } | undefined
+                    )?.attestations;
+                    const provenance = attestations?.provenance
+                      ? provenanceInfo(attestations.provenance)
+                      : undefined;
 
                     return (
                       <div class="card">
@@ -786,6 +845,26 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                             <div class="text-sm break-all">
                               {(pkg.meta as npm.PackumentVersion).dist.shasum}
                             </div>
+                          </div>
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Provenance</h4>
+                            {provenance ? (
+                              <div class="flex items-center gap-2">
+                                <span class="badge">verified</span>
+                                {provenance.logIndex != null ? (
+                                  <a
+                                    href={`https://search.sigstore.dev/?logIndex=${provenance.logIndex}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-sm underline"
+                                  >
+                                    transparency log
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div class="text-sm">none</div>
+                            )}
                           </div>
                         </section>
                         <footer class="flex gap-2">
@@ -827,6 +906,11 @@ app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
   if (!pkg) {
     return c.notFound();
   }
+
+  const meta = pkg.meta as npm.PackumentVersion;
+  const attestations = (meta.dist as { attestations?: ProvenanceAttestation } | undefined)
+    ?.attestations;
+  const provenance = attestations?.provenance ? provenanceInfo(attestations.provenance) : undefined;
 
   return c.render(
     <html lang="en">
@@ -871,6 +955,46 @@ app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
                   <div class="text-sm break-all">
                     {(pkg.meta as npm.PackumentVersion).dist.shasum}
                   </div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">
+                    Provenance {provenance ? <span class="badge">verified</span> : null}
+                  </h4>
+                  {provenance ? (
+                    <div class="space-y-2">
+                      <div class="flex items-center gap-2">
+                        {provenance.logIndex != null ? (
+                          <a
+                            href={`https://search.sigstore.dev/?logIndex=${provenance.logIndex}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-sm underline"
+                          >
+                            transparency log
+                          </a>
+                        ) : null}
+                      </div>
+                      {provenance.repository ? (
+                        <div class="text-sm break-all">
+                          <a
+                            href={
+                              (provenance.repository.endsWith("/")
+                                ? provenance.repository
+                                : provenance.repository + "/") +
+                              (provenance.gitCommit ? `commit/${provenance.gitCommit}` : "")
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="underline"
+                          >
+                            {provenance.repository.replace(/^https?:\/\/(www\.)?/, "")}
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div class="text-sm">none</div>
+                  )}
                 </div>
               </section>
               <footer class="flex gap-2">

@@ -19,6 +19,13 @@ import {
 } from "@/lexicons";
 import { base64ToBlob } from "@/lib/base64";
 import {
+  bytesToHex,
+  decodeBase64,
+  verifyProvenance,
+  type ProvenanceAttestation,
+  type SigstoreBundle,
+} from "@/lib/provenance";
+import {
   readCursor,
   indexEvent,
   readStagedPackages,
@@ -114,6 +121,23 @@ app.post("/-/stage/package/:package", requireCliAuth({ "atpm:allowStage": true }
     const input = await base64ToBlob(attachment).catch(() => undefined);
     if (!input) return c.json({ error: "invalid attachment" }, 400);
 
+    const tarballBytes = new Uint8Array(await input.arrayBuffer());
+
+    let attestation: ProvenanceAttestation | undefined;
+    if (body._attachments[`${scope}/${name}-${version}.sigstore`]) {
+      try {
+        attestation = await verifyAttestationAttachment(c, {
+          scope,
+          name,
+          version,
+          attachment: body._attachments[`${scope}/${name}-${version}.sigstore`],
+          tarballBytes,
+        });
+      } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+      }
+    }
+
     const blob = await atcute.client
       .call(ComAtprotoRepoUploadBlob, { input, signal: c.req.raw.signal })
       .catch(() => undefined);
@@ -135,6 +159,7 @@ app.post("/-/stage/package/:package", requireCliAuth({ "atpm:allowStage": true }
         dist: {
           ...meta.dist,
           tarball: tarballUrl.href,
+          ...(attestation ? { attestations: attestation } : {}),
         },
       },
     });
@@ -374,7 +399,54 @@ app.post("/-/index", async (c) => {
 });
 
 app.get("/-/package/:packageName/visibility", (c) => {
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.json({ public: true });
+});
+
+app.get("/-/npm/v1/attestations/:spec", async (c) => {
+  const atcute = c.get("atcute");
+  const spec = c.req.param("spec");
+
+  if (!spec.startsWith("@") || !spec.includes("/") || !spec.slice(1).includes("@")) {
+    return c.json({ error: "invalid package name" }, 400);
+  }
+  const [packageParam, version] = spec.slice(1).split("@");
+
+  const [handle, name] = packageParam.split("/");
+  const resolved = await atcute.actorResolver.resolve(handle as Handle).catch(() => undefined);
+  if (!resolved) return c.json({ error: "actor not found" }, 404);
+
+  const client = await atcute.publicClientFor(resolved.did);
+  const recordResponse = await client.call(ComAtprotoRepoGetRecord, {
+    params: {
+      repo: resolved.did,
+      collection: "dev.atpm.alpha.package",
+      rkey: name.split("@")[0],
+    },
+  });
+  if (!recordResponse.ok) return c.json({ error: "record not found" }, 404);
+
+  const data = recordResponse.data.value as DevAtpmPackage.Main;
+  const pkg = data.versions.find((entry) => entry.version === version);
+  const attestation = (pkg?.meta as { dist?: { attestations?: ProvenanceAttestation } } | undefined)
+    ?.dist?.attestations;
+  if (!attestation?.provenance) return c.json({ error: "provenance not found" }, 404);
+
+  let predicateType = "https://github.com/npm/attestation/tree/main/specs/publish/v0.1";
+  try {
+    const payload = new TextDecoder().decode(
+      decodeBase64(attestation.provenance.dsseEnvelope.payload),
+    );
+    predicateType =
+      (JSON.parse(payload) as { predicateType?: string }).predicateType ?? predicateType;
+  } catch {
+    // keep the default predicate type
+  }
+
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  return c.json({
+    attestations: [{ predicateType, bundle: attestation.provenance }],
+  });
 });
 
 app.get("/:package", async (c) => {
@@ -426,7 +498,7 @@ app.get("/:package", async (c) => {
     }
   }
 
-  c.header("Cache-Control", "public, max-age=500");
+  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
   return c.json({
     _rev: recordResponse.data.cid || recordResponse.data.uri,
     _id: `${resolved.did}/${packageName}`,
@@ -491,6 +563,23 @@ app.put("/:package", requireCliAuth({ "atpm:allowPublish": true }), async (c) =>
     const input = await base64ToBlob(attachment).catch(() => undefined);
     if (!input) return c.json({ error: "invalid attachment" }, 400);
 
+    const tarballBytes = new Uint8Array(await input.arrayBuffer());
+
+    let attestation: ProvenanceAttestation | undefined;
+    if (body._attachments[`${scope}/${name}-${version}.sigstore`]) {
+      try {
+        attestation = await verifyAttestationAttachment(c, {
+          scope,
+          name,
+          version,
+          attachment: body._attachments[`${scope}/${name}-${version}.sigstore`],
+          tarballBytes,
+        });
+      } catch (error) {
+        return c.json({ error: (error as Error).message }, 400);
+      }
+    }
+
     const blob = await atcute.client
       .call(ComAtprotoRepoUploadBlob, { input, signal: c.req.raw.signal })
       .catch(() => undefined);
@@ -510,6 +599,7 @@ app.put("/:package", requireCliAuth({ "atpm:allowPublish": true }), async (c) =>
         dist: {
           ...meta.dist,
           tarball: tarballUrl.href,
+          ...(attestation ? { attestations: attestation } : {}),
         },
       },
     });
@@ -556,6 +646,49 @@ app.put("/:package", requireCliAuth({ "atpm:allowPublish": true }), async (c) =>
 
   return c.json({ success: true });
 });
+
+async function verifyAttestationAttachment(
+  c: Context,
+  args: {
+    scope: string;
+    name: string;
+    version: string;
+    attachment: { content_type: string; data: string; length: number };
+    tarballBytes: Uint8Array<ArrayBuffer>;
+  },
+): Promise<ProvenanceAttestation> {
+  const atcute = c.get("atcute");
+  if (!atcute.authenticated || !atcute.session) {
+    throw new Error("unauthenticated");
+  }
+
+  let bundle: SigstoreBundle;
+  try {
+    const data = args.attachment.data.trim();
+    // npm CLI sends the serialized bundle as a raw JSON string (not base64)
+    bundle = JSON.parse(data.startsWith("{") ? data : new TextDecoder().decode(decodeBase64(data)));
+  } catch (error) {
+    throw new Error(`invalid provenance attachment: ${(error as Error).message}`);
+  }
+
+  const sha512Hex = bytesToHex(await crypto.subtle.digest("SHA-512", args.tarballBytes));
+
+  const publishers = await readPublishers(atcute.session.did, args.name).catch(() => null);
+
+  await verifyProvenance(bundle, {
+    name: `${args.scope}/${args.name}`,
+    version: args.version,
+    sha512Hex,
+    github: publishers?.github,
+  });
+
+  const url = new URL(
+    `/-/npm/v1/attestations/${encodeURIComponent(`${args.scope}/${args.name}`)}@${args.version}`,
+    c.req.url,
+  ).href;
+
+  return { url, provenance: bundle };
+}
 
 function proxyRequest(c: Context, body?: BodyInit | null) {
   const url = new URL(c.req.url);

@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { scope } from "@atcute/oauth-node-client";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";

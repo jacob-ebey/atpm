@@ -8,6 +8,7 @@ import {
 import { is, parseResourceUri, safeParse, type Did, type ResourceUri } from "@atcute/lexicons";
 import { and, count, eq, like, max, sql } from "drizzle-orm";
 import { getContext } from "hono/context-storage";
+import type * as npm from "@npm/types";
 import { v5 as uuid } from "uuid";
 import * as v from "valibot";
 
@@ -18,6 +19,7 @@ import {
   DevAtpmAlphaTrustPublisher as DevAtpmTrustPublisher,
 } from "@/lexicons";
 import { invariant } from "@/lib/invariant";
+import { bytesToHex, verifyProvenance, type ProvenanceAttestation } from "@/lib/provenance";
 
 const FIRST_EVENT = 1786224527583480;
 
@@ -457,6 +459,28 @@ export async function approveStaged(stageId: string): Promise<
 
   if (versions.some((version) => version.version === pkg.version)) {
     return { error: "version already exists", status: 403 };
+  }
+
+  const meta = pkg.meta as npm.PackumentVersion;
+  const attestation = (meta.dist as { attestations?: ProvenanceAttestation } | undefined)
+    ?.attestations;
+  if (attestation?.provenance) {
+    const tarball = await fetch(meta.dist.tarball).catch(() => undefined);
+    if (!tarball?.ok) {
+      return { error: "failed to fetch staged tarball for provenance verification", status: 500 };
+    }
+    const sha512Hex = bytesToHex(
+      await crypto.subtle.digest("SHA-512", await tarball.arrayBuffer()),
+    );
+    try {
+      await verifyProvenance(attestation.provenance, {
+        name: pkg.name,
+        version: pkg.version,
+        sha512Hex,
+      });
+    } catch (error) {
+      return { error: `invalid provenance: ${(error as Error).message}`, status: 400 };
+    }
   }
 
   versions.unshift({

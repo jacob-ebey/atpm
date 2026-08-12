@@ -17,6 +17,7 @@ catalog:
   "@cloudflare/vite-plugin": 1.51.0
   "@hiogawa/vite-plugin-fullstack": 0.0.11
   "@npm/types": 2.1.0
+  "@peculiar/x509": 2.0.0
   "@standard-schema/spec": 1.1.0
   "@tailwindcss/vite": 4.3.3
   "@types/node": ^24.13.3
@@ -31,6 +32,7 @@ catalog:
   jose: 6.2.8
   marked: 18.0.9
   package-json-validator: 1.6.0
+  reflect-metadata: 0.2.2
   srv-jsx: 0.0.12
   tailwindcss: 4.3.3
   template-for-polyfill: 0.1.1
