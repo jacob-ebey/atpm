@@ -53,7 +53,7 @@ app.get("/", async (c) => {
                 data-size="sm"
               >
                 <code class="min-w-0 flex-1 overflow-x-auto scrollbar-none">
-                  {`registry=${new URL("/", c.req.url)}`}
+                  {`registry=${new URL("/", c.req.url).href.replace(/\/$/, "")}`}
                 </code>
                 <button
                   class="btn"
