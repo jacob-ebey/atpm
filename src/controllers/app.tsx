@@ -36,7 +36,7 @@ app.get("/", async (c) => {
     <html lang="en">
       <Head>
         <title>ATPM</title>
-        <meta name="description" content="Distributed package management." />
+        <meta name="description" content="Distributed package management powered by AT Protocol." />
       </Head>
       <Body>
         <Layout>
@@ -156,7 +156,7 @@ app.get("/search", async (c) => {
     <html lang="en">
       <Head>
         <title>{query ? `${query} | ATPM Search` : "ATPM Search"}</title>
-        <meta name="description" content="Search for AT Protocol packages." />
+        <meta name="description" content="Search for packages published on the AT Protocol." />
       </Head>
       <Body>
         <Layout>
@@ -279,7 +279,10 @@ app.get("/package/:did/:rkey", async (c) => {
     <html lang="en">
       <Head>
         <title>{`${rkey} | ATPM`}</title>
-        <meta name="description" content={meta.description || "No package description."} />
+        <meta
+          name="description"
+          content={meta.description || "Distributed package management powered by AT Protocol."}
+        />
       </Head>
       <Body>
         <Layout>
@@ -518,7 +521,10 @@ app.get("/dash/publishers", requireAuth(), async (c) => {
     <html>
       <Head>
         <title>Trusted publishers | ATPM</title>
-        <meta name="description" content="List of staged packages." />
+        <meta
+          name="description"
+          content="Manage GitHub workflows approved to publish or stage packages on the AT Protocol."
+        />
       </Head>
       <Body>
         <Layout>
@@ -792,7 +798,10 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
     <html>
       <Head>
         <title>Staged Packages | ATPM</title>
-        <meta name="description" content="List of staged packages." />
+        <meta
+          name="description"
+          content="Review and approve packages staged for publishing on the AT Protocol."
+        />
       </Head>
       <Body>
         <Layout>
@@ -929,7 +938,10 @@ app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
     <html lang="en">
       <Head>
         <title>Staged {pkg.name} | ATPM</title>
-        <meta name="description" content={`Staged package ${pkg.name}`} />
+        <meta
+          name="description"
+          content={`Review staged package ${pkg.name} before publishing to the AT Protocol.`}
+        />
       </Head>
       <Body>
         <Layout>
@@ -1076,7 +1088,11 @@ app.get("/auth/login", (c) => {
   return c.render(
     <html lang="en">
       <Head>
-        <title>Login</title>
+        <title>Login | ATPM</title>
+        <meta
+          name="description"
+          content="Log in with your Atmosphere account to publish packages on the AT Protocol."
+        />
       </Head>
       <Body>
         <Layout>
