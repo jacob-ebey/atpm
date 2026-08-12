@@ -44,7 +44,13 @@ function bytesToBase64(bytes: ArrayBuffer | Uint8Array): string {
 }
 
 async function createChain(
-  overrides: { visibility?: string; issuer?: string; runner?: string } = {},
+  overrides: {
+    visibility?: string;
+    issuer?: string;
+    runner?: string;
+    leafNotBefore?: Date;
+    leafNotAfter?: Date;
+  } = {},
 ) {
   const rootKeys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
     "sign",
@@ -90,8 +96,8 @@ async function createChain(
     serialNumber: "02",
     subject: "CN=sigstore",
     issuer: intermediate.subject,
-    notBefore: new Date(Date.now() - 1000 * 60),
-    notAfter: new Date(Date.now() + 1000 * 60 * 10),
+    notBefore: overrides.leafNotBefore ?? new Date(Date.now() - 1000 * 60),
+    notAfter: overrides.leafNotAfter ?? new Date(Date.now() + 1000 * 60 * 10),
     publicKey: leafKeys.publicKey,
     signingKey: intermediateKeys.privateKey,
     signingAlgorithm: { name: "ECDSA", hash: "SHA-256" },
@@ -186,6 +192,7 @@ async function makeBundle({
   statement = makeStatement(),
   useV01 = false,
   mediaType = "application/vnd.dev.sigstore.bundle.v0.2+json",
+  integratedTime,
 }: {
   leaf: Awaited<ReturnType<typeof createChain>>["leaf"];
   intermediate: Awaited<ReturnType<typeof createChain>>["intermediate"];
@@ -193,7 +200,9 @@ async function makeBundle({
   statement?: ProvenanceStatement;
   useV01?: boolean;
   mediaType?: string;
+  integratedTime?: string;
 }): Promise<SigstoreBundle> {
+  const tlogEntries = [{ logIndex: 42, ...(integratedTime ? { integratedTime } : {}) }];
   const bundle: SigstoreBundle = {
     mediaType,
     verificationMaterial: useV01
@@ -206,14 +215,14 @@ async function makeBundle({
               ],
             },
           },
-          tlogEntries: [{ logIndex: 42 }],
+          tlogEntries,
         }
       : {
           certificate: { rawBytes: bytesToBase64(leaf.rawData) },
           certificateChain: {
             certificates: [{ rawBytes: bytesToBase64(intermediate.rawData) }],
           },
-          tlogEntries: [{ logIndex: 42 }],
+          tlogEntries,
         },
     dsseEnvelope: {
       payloadType: INTOTO_PAYLOAD_TYPE,
@@ -274,6 +283,45 @@ test("verifies a v0.3 bundle", async () => {
       root.toString("pem"),
     ]),
   ).resolves.toMatchObject({ transparencyLogUrl: "https://search.sigstore.dev/?logIndex=42" });
+});
+
+test("verifies provenance when the leaf certificate has expired since signing", async () => {
+  const signingTime = new Date(Date.now() - 1000 * 60 * 60 * 24 * 7);
+  const { root, intermediate, leaf, signingKey } = await createChain({
+    leafNotBefore: new Date(signingTime.getTime() - 1000 * 60),
+    leafNotAfter: new Date(signingTime.getTime() + 1000 * 60 * 10),
+  });
+  const bundle = await makeBundle({
+    leaf,
+    intermediate,
+    signingKey,
+    integratedTime: signingTime.toISOString(),
+  });
+
+  await expect(
+    verifyProvenance(bundle, { name: "@example/package", version: "1.0.0", sha512Hex: SHA512 }, [
+      root.toString("pem"),
+    ]),
+  ).resolves.toMatchObject({ transparencyLogUrl: "https://search.sigstore.dev/?logIndex=42" });
+});
+
+test("rejects when the leaf certificate was not valid at signing time", async () => {
+  const signingTime = new Date(Date.now() - 1000 * 60 * 60 * 24 * 7);
+  const { root, intermediate, leaf, signingKey } = await createChain({
+    leafNotBefore: new Date(signingTime.getTime() + 1000 * 60),
+  });
+  const bundle = await makeBundle({
+    leaf,
+    intermediate,
+    signingKey,
+    integratedTime: signingTime.toISOString(),
+  });
+
+  await expect(
+    verifyProvenance(bundle, { name: "@example/package", version: "1.0.0", sha512Hex: SHA512 }, [
+      root.toString("pem"),
+    ]),
+  ).rejects.toThrow(/validity expired/);
 });
 
 test("rejects when the subject digest does not match the tarball", async () => {

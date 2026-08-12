@@ -15,6 +15,7 @@ export interface SigstoreBundle {
     };
     tlogEntries?: {
       logIndex: string | number;
+      integratedTime?: string;
       [key: string]: unknown;
     }[];
   };
@@ -146,9 +147,18 @@ export async function verifyProvenance(
     throw new Error("invalid provenance certificate chain: does not chain to the trusted root");
   }
 
-  for (const cert of chain) {
-    const now = new Date();
-    if (now < cert.notBefore || now > cert.notAfter) {
+  const signingTime = tlogIntegratedTime(material.tlogEntries);
+  const now = new Date();
+  for (let i = 0; i < chain.length; i++) {
+    const cert = chain[i];
+    // Fulcio leaf certificates are short-lived (GitHub Actions certs are
+    // valid for ~10 minutes). A staged package may be approved long after
+    // the bundle was signed, so the leaf's validity must be evaluated at
+    // the time of signing — as established by the transparency log entry —
+    // rather than at approval time. Long-lived intermediates and roots are
+    // still checked against the current time.
+    const reference = i === 0 ? (signingTime ?? now) : now;
+    if (reference < cert.notBefore || reference > cert.notAfter) {
       throw new Error("invalid provenance certificate chain: certificate validity expired");
     }
   }
@@ -300,6 +310,20 @@ function matchGithubRepository(
   } catch {
     return false;
   }
+}
+
+/**
+ * The time the bundle's signature was included in the transparency log,
+ * serialized as an RFC3339 timestamp per the protobuf JSON mapping. This
+ * establishes when the signing certificate was used.
+ */
+function tlogIntegratedTime(
+  entries: SigstoreBundle["verificationMaterial"]["tlogEntries"],
+): Date | undefined {
+  const raw = entries?.[0]?.integratedTime;
+  if (typeof raw !== "string") return undefined;
+  const time = new Date(raw);
+  return Number.isNaN(time.getTime()) ? undefined : time;
 }
 
 function getStringExtension(cert: X509Certificate, oid: string): string | undefined {
