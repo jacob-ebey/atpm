@@ -23,7 +23,7 @@ const startCursor = await readFile(VERSION_CACHE, "utf8")
     return num;
   })
   .catch(() =>
-    fetch(new URL("/registry/-/index", indexerBase))
+    fetch(new URL("/-/index", indexerBase))
       .then((r) => r.json())
       .then((data) => data as number),
   );
@@ -63,7 +63,7 @@ async function syncEvents() {
   while (eventsToSync.length > 0) {
     const event = eventsToSync.shift();
     if (!event) continue;
-    const response = await fetch(new URL("/registry/-/index", indexerBase), {
+    const response = await fetch(new URL("/-/index", indexerBase), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -50,7 +50,7 @@ app.get("/", async (c) => {
                 data-size="sm"
               >
                 <code class="min-w-0 flex-1 overflow-x-auto scrollbar-none">
-                  {`registry=${new URL("/registry", c.req.url)}`}
+                  {`registry=${new URL("/", c.req.url)}`}
                 </code>
                 <button
                   class="btn"
@@ -451,64 +451,155 @@ app.get("/staged-packages", requireAuth(), async (c) => {
                   </p>
                 </>
               ) : (
-                staged.map(async (staged) => {
-                  const stageId = uuid(staged.uri + `/${staged.cid}`, uuid.URL);
+                <>
+                  <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-6">
+                    Staged packages
+                  </h1>
+                  {staged.map(async (pkg) => {
+                    const stageId = uuid(pkg.uri + `/${pkg.cid}`, uuid.URL);
 
-                  return (
-                    <div class="card">
-                      <header>
-                        <h3>{staged.name}</h3>
-                        <p class="flex gap-3">
-                          <span>{timeAgo(new Date(staged.createdAt).getTime())}</span>
-                        </p>
-                      </header>
-                      <section class="flex flex-col gap-6 sm:flex-row">
-                        <div class="space-y-2">
-                          <h4 class="text-sm leading-none font-semibold">Date</h4>
-                          <div class="text-sm">
-                            <time datetime={staged.createdAt}>
-                              {new Intl.DateTimeFormat("en-US", {
-                                timeZone: "UTC",
-                                dateStyle: "long",
-                                timeStyle: "long",
-                              }).format(new Date(staged.createdAt))}
-                            </time>
+                    return (
+                      <div class="card">
+                        <header>
+                          <h3>
+                            {pkg.name}@{pkg.version}
+                          </h3>
+                          <p class="flex gap-3">
+                            <span>{timeAgo(new Date(pkg.createdAt).getTime())}</span>
+                          </p>
+                        </header>
+                        <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Date</h4>
+                            <div class="text-sm">
+                              <time datetime={pkg.createdAt}>
+                                {new Intl.DateTimeFormat("en-US", {
+                                  timeZone: "UTC",
+                                  dateStyle: "long",
+                                  timeStyle: "long",
+                                }).format(new Date(pkg.createdAt))}
+                              </time>
+                            </div>
                           </div>
-                        </div>
-                        <div class="space-y-2 flex-1">
-                          <h4 class="text-sm leading-none font-semibold">ID</h4>
-                          <div class="text-sm break-all">{stageId}</div>
-                        </div>
-                        <div class="space-y-2 flex-1">
-                          <h4 class="text-sm leading-none font-semibold">URI</h4>
-                          <div class="text-sm break-all">{staged.uri}</div>
-                        </div>
-                        <div class="space-y-2 flex-1">
-                          <h4 class="text-sm leading-none font-semibold">Shasum</h4>
-                          <div class="text-sm break-all">
-                            {(staged.meta as npm.PackumentVersion).dist.shasum}
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">ID</h4>
+                            <div class="text-sm break-all">{stageId}</div>
                           </div>
-                        </div>
-                      </section>
-                      <footer class="flex gap-2">
-                        <form method="post" action={`/staged-package/${stageId}/approve`}>
-                          <button type="submit" class="btn">
-                            Approve
-                          </button>
-                        </form>
-                        <a class="btn" data-variant="secondary" href={`/staged-package/${stageId}`}>
-                          Review
-                        </a>
-                        <form method="post" action={`/staged-package/${stageId}/reject`}>
-                          <button type="submit" class="btn" data-variant="destructive">
-                            Reject
-                          </button>
-                        </form>
-                      </footer>
-                    </div>
-                  );
-                })
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">URI</h4>
+                            <div class="text-sm break-all">{pkg.uri}</div>
+                          </div>
+                          <div class="space-y-2">
+                            <h4 class="text-sm leading-none font-semibold">Shasum</h4>
+                            <div class="text-sm break-all">
+                              {(pkg.meta as npm.PackumentVersion).dist.shasum}
+                            </div>
+                          </div>
+                        </section>
+                        <footer class="flex gap-2">
+                          <form method="post" action={`/staged-package/${stageId}/approve`}>
+                            <button type="submit" class="btn">
+                              Approve
+                            </button>
+                          </form>
+                          <a
+                            class="btn"
+                            data-variant="secondary"
+                            href={`/staged-package/${stageId}`}
+                          >
+                            Review
+                          </a>
+                          <form method="post" action={`/staged-package/${stageId}/reject`}>
+                            <button type="submit" class="btn" data-variant="destructive">
+                              Reject
+                            </button>
+                          </form>
+                        </footer>
+                      </div>
+                    );
+                  })}
+                </>
               )}
+            </section>
+          </main>
+        </Layout>
+      </Body>
+    </html>,
+  );
+});
+
+app.get("/staged-package/:stageId", requireAuth(), async (c) => {
+  const stageId = c.req.param("stageId");
+  const staged = await readStagedPackages();
+  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
+  if (!pkg) {
+    return c.notFound();
+  }
+
+  return c.render(
+    <html lang="en">
+      <Head>
+        <title>Staged {pkg.name} | ATPM</title>
+        <meta name="description" content={`Staged package ${pkg.name}`} />
+      </Head>
+      <Body>
+        <Layout>
+          <main class="c-x c-y-s">
+            <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
+              {pkg.name}@{pkg.version}
+            </h1>
+            <p class="max-w-prose text-lg text-muted-foreground mb-6">
+              {timeAgo(new Date(pkg.createdAt).getTime())}
+            </p>
+
+            <section class="card mb-6">
+              <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">Date</h4>
+                  <div class="text-sm">
+                    <time datetime={pkg.createdAt}>
+                      {new Intl.DateTimeFormat("en-US", {
+                        timeZone: "UTC",
+                        dateStyle: "long",
+                        timeStyle: "long",
+                      }).format(new Date(pkg.createdAt))}
+                    </time>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">ID</h4>
+                  <div class="text-sm break-all">{stageId}</div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">URI</h4>
+                  <div class="text-sm break-all">{pkg.uri}</div>
+                </div>
+                <div class="space-y-2">
+                  <h4 class="text-sm leading-none font-semibold">Shasum</h4>
+                  <div class="text-sm break-all">
+                    {(pkg.meta as npm.PackumentVersion).dist.shasum}
+                  </div>
+                </div>
+              </section>
+              <footer class="flex gap-2">
+                <form method="post" action={`/staged-package/${stageId}/approve`}>
+                  <button type="submit" class="btn">
+                    Approve
+                  </button>
+                </form>
+                <form method="post" action={`/staged-package/${stageId}/reject`}>
+                  <button type="submit" class="btn" data-variant="destructive">
+                    Reject
+                  </button>
+                </form>
+              </footer>
+            </section>
+
+            <section class="empty border border-dashed">
+              <header>
+                <h3>Under Construction</h3>
+                <p>A diff viewer is in the works.</p>
+              </header>
             </section>
           </main>
         </Layout>
