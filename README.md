@@ -1,6 +1,6 @@
-# AT Starter
+# ATPM
 
-The batteries-included AT Protocol starter. Authentication, custom lexicons, Basecoat UI. Backed by the power of Cloudflare.
+Distributed package management powered by AT Protocol.
 
 ## Using Vite+, the Unified Toolchain for the Web
 
