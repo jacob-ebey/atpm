@@ -114,5 +114,5 @@ test("rejects an invalid spec", async () => {
   const res = await buildApp().request("https://example.test/-/npm/v1/attestations/nope");
 
   expect(res.status).toBe(400);
-  expect(await res.json()).toEqual({ error: "invalid attestation spec" });
+  expect(await res.json()).toEqual({ error: "invalid package name" });
 });

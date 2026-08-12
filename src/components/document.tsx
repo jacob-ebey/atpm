@@ -40,12 +40,12 @@ export function Body({ children }: { children?: JSXChild }) {
 
   return (
     <body>
+      {children}
       <Toaster id="toaster">
         {errors.map((error) => (
           <Toast category="error" title={error} />
         ))}
       </Toaster>
-      {children}
     </body>
   );
 }

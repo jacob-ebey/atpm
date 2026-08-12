@@ -442,7 +442,7 @@ app.get("/-/npm/v1/attestations/:spec", async (c) => {
     // keep the default predicate type
   }
 
-  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  c.header("Cache-Control", "s-maxage=30, stale-while-revalidate=1800");
   return c.json({
     attestations: [{ predicateType, bundle: attestation.provenance }],
   });
@@ -497,7 +497,7 @@ app.get("/:package", async (c) => {
     }
   }
 
-  c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  c.header("Cache-Control", "s-maxage=30, stale-while-revalidate=1800");
   return c.json({
     _rev: recordResponse.data.cid || recordResponse.data.uri,
     _id: `${resolved.did}/${packageName}`,

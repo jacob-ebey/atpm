@@ -22,11 +22,11 @@ function get(session?: boolean, path?: string) {
 test("redirects when no atcute session", async () => {
   const response = await get();
   expect(response.status).toBe(302);
-  expect(response.headers.get("Location")).toBe("http://test/?login&returnTo=/");
+  expect(response.headers.get("Location")).toBe("http://test/auth/login?returnTo=/");
 });
 
 test("redirect retains pathname and search", async () => {
   const response = await get(false, "/pathname?search=value");
   expect(response.status).toBe(302);
-  expect(response.headers.get("Location")).toBe("http://test/?login&returnTo=/pathname");
+  expect(response.headers.get("Location")).toBe("http://test/auth/login?returnTo=/pathname");
 });

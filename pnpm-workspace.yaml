@@ -31,8 +31,10 @@ catalog:
   invokers-polyfill: 1.0.3
   jose: 6.2.8
   marked: 18.0.9
+  marked-shiki: 1.2.1
   package-json-validator: 1.6.0
   reflect-metadata: 0.2.2
+  shiki: 4.4.3
   srv-jsx: 0.0.12
   tailwindcss: 4.3.3
   template-for-polyfill: 0.1.1

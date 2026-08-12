@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
 
 import appController from "@/controllers/app";
+import docs from "@/controllers/docs";
 import registry from "@/controllers/registry";
 import oauth from "@/controllers/oauth";
 import { database } from "@/db/middleware";
@@ -63,6 +64,7 @@ app.use(
 
 app.route("/oauth", oauth);
 app.route("/", appController);
+app.route("/docs", docs);
 app.route("/", registry);
 app.notFound((c) => {
   c.status(404);

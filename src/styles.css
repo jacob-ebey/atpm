@@ -4,6 +4,16 @@
 @import "./typeset.css";
 
 @layer base {
+  /* shiki dual themes: light is the default inline color, dark applies
+     when the class-based `dark` theme is active. */
+  html.dark .shiki,
+  html.dark .shiki span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
   .c-x {
     @apply px-4 md:px-8 lg:px-24 max-w-7xl mx-auto;
   }

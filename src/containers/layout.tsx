@@ -5,7 +5,13 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { getContext } from "hono/context-storage";
 import { estimateStagedPackages } from "@/models/packages";
 
-export async function Layout({ children }: { children?: JSXChild }) {
+export async function Layout({
+  children,
+  extraMobileButtons,
+}: {
+  children?: JSXChild;
+  extraMobileButtons?: JSXChild;
+}) {
   const c = getContext<Env>();
   const atcute = c.get("atcute");
 
@@ -21,7 +27,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
   return (
     <>
       <header
-        class="sticky top-0 z-50 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background"
+        class="sticky top-0 z-10 w-full border-b border-border backdrop-blur supports-backdrop-filter:bg-background"
         style="view-transition-name: layout-header;"
       >
         <div class="flex items-center gap-2 c-x py-4">
@@ -131,6 +137,7 @@ export async function Layout({ children }: { children?: JSXChild }) {
             <div class="hidden sm:contents">
               <ThemeToggle />
             </div>
+            {extraMobileButtons}
             <button
               type="button"
               class="btn sm:hidden"
@@ -199,6 +206,9 @@ export async function Layout({ children }: { children?: JSXChild }) {
             </div>
             <a href="/dash/staged-packages" class="btn" data-variant="outline">
               Staged Packages {stagedPackagesPromise.then((c) => (c > 0 ? `(${c})` : null))}
+            </a>
+            <a href="/dash/publishers" class="btn" data-variant="outline">
+              Trusted Publishers
             </a>
             <form class="flex-1 sm:flex-0" action="/search">
               <div class="input-group">

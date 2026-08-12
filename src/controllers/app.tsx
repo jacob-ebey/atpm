@@ -31,7 +31,7 @@ app.get("/", async (c) => {
   const atcute = c.get("atcute");
   const recentPackages = await readRecentPackages();
 
-  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "s-maxage=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -88,12 +88,25 @@ app.get("/", async (c) => {
                   </svg>
                 </button>
               </div>
-              <p class="max-w-prose text-muted-foreground">
+              <p class="max-w-prose text-muted-foreground mb-6">
                 AT Package Manager works by publishing each package as an AT Protocol record with
                 version tarballs in the users PDS. The registry resolves handles to DIDs, serves
                 packages over an npm-compatible API, and falls back to the npm registry for anything
                 not published to the AT Protocol.
               </p>
+              <div class="flex gap-2">
+                <a href="/docs/getting-started" class="btn" data-size="lg">
+                  Get started
+                </a>
+                <a
+                  href="/docs/trusted-publishing"
+                  class="btn"
+                  data-size="lg"
+                  data-variant="secondary"
+                >
+                  Trusted publishing
+                </a>
+              </div>
             </section>
             <section class="c-x c-y">
               <h2 class="font-serif text-2xl leading-tight tracking-tight text-balance lg:text-3xl mb-4">
@@ -138,7 +151,7 @@ app.get("/search", async (c) => {
 
   if (!packages?.length) c.status(404);
 
-  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "s-maxage=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>
@@ -261,7 +274,7 @@ app.get("/package/:did/:rkey", async (c) => {
     size = `${(version.blob.size / 1024).toFixed(2)} kB`;
   }
 
-  if (!atcute.authenticated) c.header("Cache-Control", "max-age=30, stale-while-revalidate=1800");
+  if (!atcute.authenticated) c.header("Cache-Control", "s-maxage=30, stale-while-revalidate=1800");
   return c.render(
     <html lang="en">
       <Head>

@@ -26,7 +26,7 @@ export const requireAuth =
     const atcute = c.get("atcute");
     if (!atcute.authenticated) {
       const url = new URL(c.req.url);
-      return c.redirect(new URL(`/?login&returnTo=${encodeURI(url.pathname)}`, c.req.url));
+      return c.redirect(new URL(`/auth/login?returnTo=${encodeURI(url.pathname)}`, c.req.url));
     }
     await next();
   };
