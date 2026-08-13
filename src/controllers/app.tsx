@@ -728,7 +728,7 @@ app.get("/dash/publishers", requireAuth(), async (c) => {
                 class="btn"
                 onclick="this.closest('dialog').close()"
               >
-                Create approveal
+                Create approval
               </button>
             </footer>
             <button
