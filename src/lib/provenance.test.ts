@@ -295,7 +295,8 @@ test("verifies provenance when the leaf certificate has expired since signing", 
     leaf,
     intermediate,
     signingKey,
-    integratedTime: signingTime.toISOString(),
+    // real bundles carry unix epoch seconds per the protobuf JSON mapping
+    integratedTime: String(Math.floor(signingTime.getTime() / 1000)),
   });
 
   await expect(
@@ -314,7 +315,7 @@ test("rejects when the leaf certificate was not valid at signing time", async ()
     leaf,
     intermediate,
     signingKey,
-    integratedTime: signingTime.toISOString(),
+    integratedTime: String(Math.floor(signingTime.getTime() / 1000)),
   });
 
   await expect(

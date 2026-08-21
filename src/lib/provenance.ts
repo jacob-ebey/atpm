@@ -15,7 +15,7 @@ export interface SigstoreBundle {
     };
     tlogEntries?: {
       logIndex: string | number;
-      integratedTime?: string;
+      integratedTime?: string | number;
       [key: string]: unknown;
     }[];
   };
@@ -313,15 +313,20 @@ function matchGithubRepository(
 }
 
 /**
- * The time the bundle's signature was included in the transparency log,
- * serialized as an RFC3339 timestamp per the protobuf JSON mapping. This
- * establishes when the signing certificate was used.
+ * The time the bundle's signature was included in the transparency log.
+ * Per the protobuf JSON mapping this is an int64 of unix epoch seconds
+ * (e.g. "1675209600"), though some producers emit an RFC3339 timestamp.
+ * This establishes when the signing certificate was used.
  */
 function tlogIntegratedTime(
   entries: SigstoreBundle["verificationMaterial"]["tlogEntries"],
 ): Date | undefined {
   const raw = entries?.[0]?.integratedTime;
-  if (typeof raw !== "string") return undefined;
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) ? new Date(raw * 1000) : undefined;
+  }
+  if (typeof raw !== "string" || raw.length === 0) return undefined;
+  if (/^\d+$/.test(raw)) return new Date(Number(raw) * 1000);
   const time = new Date(raw);
   return Number.isNaN(time.getTime()) ? undefined : time;
 }
