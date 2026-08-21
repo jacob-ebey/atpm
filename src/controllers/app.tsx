@@ -831,6 +831,14 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                       ? provenanceInfo(attestations.provenance)
                       : undefined;
 
+                    const published = await readPackage(
+                      atcute.session.did,
+                      pkg.name.split("/").at(1)!,
+                    );
+                    const lastVersion =
+                      (published?.tags.latest as string) ||
+                      Object.values(published?.versions ?? {}).at(0)?.version;
+
                     return (
                       <div class="card">
                         <header>
@@ -895,13 +903,17 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                               Approve
                             </button>
                           </form>
-                          <a
-                            class="btn"
-                            data-variant="secondary"
-                            href={`/dash/staged-package/${stageId}`}
-                          >
-                            Review
-                          </a>
+                          {lastVersion ? (
+                            <a
+                              class="btn"
+                              data-variant="secondary"
+                              href={`https://drydock.org/diff/atpm/${pkg.name}/${lastVersion}/staged.${parseResourceUri(pkg.uri).rkey}.${pkg.cid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Review
+                            </a>
+                          ) : null}
                           <form method="post" action={`/dash/staged-package/${stageId}/reject`}>
                             <button type="submit" class="btn" data-variant="destructive">
                               Reject
@@ -913,134 +925,6 @@ app.get("/dash/staged-packages", requireAuth(), async (c) => {
                   })}
                 </>
               )}
-            </section>
-          </main>
-        </Layout>
-      </Body>
-    </html>,
-  );
-});
-
-app.get("/dash/staged-package/:stageId", requireAuth(), async (c) => {
-  const stageId = c.req.param("stageId");
-  const staged = await readStagedPackages();
-  const pkg = staged.find((pkg) => stageId === uuid(pkg.uri + `/${pkg.cid}`, uuid.URL));
-  if (!pkg) {
-    return c.notFound();
-  }
-
-  const meta = pkg.meta as npm.PackumentVersion;
-  const attestations = (meta.dist as { attestations?: ProvenanceAttestation } | undefined)
-    ?.attestations;
-  const provenance = attestations?.provenance ? provenanceInfo(attestations.provenance) : undefined;
-
-  return c.render(
-    <html lang="en">
-      <Head>
-        <title>Staged {pkg.name} | ATPM</title>
-        <meta
-          name="description"
-          content={`Review staged package ${pkg.name} before publishing to the AT Protocol.`}
-        />
-      </Head>
-      <Body>
-        <Layout>
-          <main class="c-x c-y-s">
-            <h1 class="font-serif text-3xl leading-tight tracking-tight text-balance lg:text-4xl mb-4">
-              {pkg.name}@{pkg.version}
-            </h1>
-            <p class="max-w-prose text-lg text-muted-foreground mb-6">
-              {timeAgo(new Date(pkg.createdAt).getTime())}
-            </p>
-
-            <section class="card mb-6">
-              <section class="flex flex-wrap flex-col gap-6 sm:flex-row">
-                <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">Created</h4>
-                  <div class="text-sm">
-                    <time datetime={pkg.createdAt}>
-                      {new Intl.DateTimeFormat("en-US", {
-                        timeZone: "UTC",
-                        dateStyle: "long",
-                        timeStyle: "long",
-                      }).format(new Date(pkg.createdAt))}
-                    </time>
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">ID</h4>
-                  <div class="text-sm break-all">{stageId}</div>
-                </div>
-                <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">URI</h4>
-                  <div class="text-sm break-all">{pkg.uri}</div>
-                </div>
-                <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">Shasum</h4>
-                  <div class="text-sm break-all">
-                    {(pkg.meta as npm.PackumentVersion).dist.shasum}
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <h4 class="text-sm leading-none font-semibold">
-                    Provenance {provenance ? <span class="badge">verified</span> : null}
-                  </h4>
-                  {provenance ? (
-                    <div class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        {provenance.logIndex != null ? (
-                          <a
-                            href={`https://search.sigstore.dev/?logIndex=${provenance.logIndex}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="text-sm underline"
-                          >
-                            transparency log
-                          </a>
-                        ) : null}
-                      </div>
-                      {provenance.repository ? (
-                        <div class="text-sm break-all">
-                          <a
-                            href={
-                              (provenance.repository.endsWith("/")
-                                ? provenance.repository
-                                : provenance.repository + "/") +
-                              (provenance.gitCommit ? `commit/${provenance.gitCommit}` : "")
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="underline"
-                          >
-                            commit {provenance.gitCommit.slice(0, 12)}
-                          </a>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div class="text-sm">none</div>
-                  )}
-                </div>
-              </section>
-              <footer class="flex gap-2">
-                <form method="post" action={`/dash/staged-package/${stageId}/approve`}>
-                  <button type="submit" class="btn">
-                    Approve
-                  </button>
-                </form>
-                <form method="post" action={`/dash/staged-package/${stageId}/reject`}>
-                  <button type="submit" class="btn" data-variant="destructive">
-                    Reject
-                  </button>
-                </form>
-              </footer>
-            </section>
-
-            <section class="empty border border-dashed">
-              <header>
-                <h3>Under Construction</h3>
-                <p>A diff viewer is in the works.</p>
-              </header>
             </section>
           </main>
         </Layout>
